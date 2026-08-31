@@ -1,5 +1,6 @@
 "use client";
 
+// Continuous 1.0-10.0 rating slider plus quick-pick buttons for common values.
 import { ratingColor } from "./RatingValue";
 
 export function RatingSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -33,7 +34,7 @@ export function RatingSlider({ value, onChange }: { value: number; onChange: (v:
             padding: "6px 11px", borderRadius: 99, fontFamily: "var(--font-mono, monospace)", fontSize: 13, fontWeight: 700,
             border: `1px solid ${value === n ? "transparent" : "var(--border)"}`,
             background: value === n ? ratingColor(n) : "var(--surface-2)",
-            color: value === n ? "#0b0c0f" : "var(--text-muted)", cursor: "pointer", transition: "all .12s",
+            color: value === n ? "var(--accent-text)" : "var(--text-muted)", cursor: "pointer", transition: "all .12s",
           }}>
             {n.toFixed(1)}
           </button>

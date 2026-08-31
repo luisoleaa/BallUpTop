@@ -1,3 +1,6 @@
+// Team/competitor art with a fallback chain so a side always renders
+// something: custom team logo -> national flag -> colored monogram
+// (abbreviation initials on a colored circle).
 import type { Side } from "@/lib/types";
 import { FlagBadge } from "./FlagBadge";
 import { LOGOS } from "./Logos";

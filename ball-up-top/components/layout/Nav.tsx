@@ -1,18 +1,11 @@
 "use client";
 
+// Sticky top navigation bar. Hidden on /login, which has its own header.
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/lib/app-store";
-
-function WebLogo({ size = 30 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" style={{ display: "block", flexShrink: 0 }}>
-      <path d="M6 32 Q14 10 28 12" stroke="var(--accent-strong)" strokeWidth="2.4" strokeDasharray="0.5 6" strokeLinecap="round" fill="none" />
-      <circle cx="30" cy="12" r="7" fill="var(--accent-strong)" />
-      <path d="M30 5v14M23 12h14M25.2 7.2q4.8 4.8 0 9.6M34.8 7.2q-4.8 4.8 0 9.6" stroke="var(--bg)" strokeWidth="1.3" fill="none" />
-    </svg>
-  );
-}
+import { Button } from "@/components/ui/Button";
+import { Logo } from "@/components/ui/Logo";
 
 export function Nav() {
   const pathname = usePathname();
@@ -22,12 +15,14 @@ export function Nav() {
   const links: [string, string][] = [
     ["/", "Home"],
     ["/browse", "Browse"],
+    ["/search", "Search"],
     ["/diary", "Diary"],
   ];
 
-  const handleSignOut = () => {
-    signOut();
+  const handleSignOut = async () => {
+    await signOut();
     router.push("/");
+    router.refresh();
     showToast("Signed out — browsing as guest");
   };
 
@@ -46,7 +41,7 @@ export function Nav() {
         display: "flex", alignItems: "center", gap: 28,
       }}>
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 9, textDecoration: "none" }}>
-          <WebLogo size={30} />
+          <Logo size={30} />
           <span style={{ fontSize: 19, fontWeight: 800, color: "var(--text)", letterSpacing: -0.6, whiteSpace: "nowrap" }}>
             Ball Up Top
           </span>
@@ -80,24 +75,17 @@ export function Nav() {
               </div>
               <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{user.name}</span>
             </div>
-            <button onClick={handleSignOut} className="bw-navlink" style={{
-              border: "1px solid var(--border)", background: "transparent", cursor: "pointer",
-              padding: "7px 14px", borderRadius: 99, fontSize: 13.5, fontWeight: 700,
-              color: "var(--text-muted)", whiteSpace: "nowrap", fontFamily: "inherit",
-            }}>
+            <Button
+              variant="secondary" size="sm" pill onClick={handleSignOut}
+              style={{ background: "transparent", color: "var(--text-muted)" }}
+            >
               Sign out
-            </button>
+            </Button>
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 12.5, color: "var(--text-faint)", fontFamily: "var(--font-mono, monospace)" }}>Browsing as guest</span>
-            <Link href="/login" style={{
-              border: "none", background: "var(--accent)", cursor: "pointer",
-              padding: "9px 18px", borderRadius: 99, fontSize: 14, fontWeight: 800,
-              color: "var(--accent-text)", textDecoration: "none", display: "inline-block",
-            }}>
-              Sign in
-            </Link>
+            <Button href="/login" size="sm" pill>Sign in</Button>
           </div>
         )}
       </div>

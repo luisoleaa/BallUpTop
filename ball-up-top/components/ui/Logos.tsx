@@ -2,6 +2,9 @@ function LogoSvg({ size, children }: { size: number; children: React.ReactNode }
   return <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block" }}>{children}</svg>;
 }
 
+// Custom team logo SVGs, keyed by Side.abbr. Only a subset of teams have a
+// hand-drawn logo here -- teams without an entry fall through Crest's chain
+// to a flag or colored monogram instead.
 export const LOGOS: Record<string, ({ size }: { size: number }) => React.ReactNode> = {
   BOS: ({ size }) => (
     <LogoSvg size={size}>

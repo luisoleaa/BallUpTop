@@ -1,22 +1,27 @@
 "use client";
 
+// Modal for logging/editing a rating: slider, live toggle, tags, review text.
+// Pre-fills from `existing` when editing an already-logged match.
 import { useEffect, useState } from "react";
 import { TAGS } from "@/lib/data";
 import type { Match, UserLog } from "@/lib/types";
-import { Crest } from "./Crest";
-import { Icon } from "./Icon";
-import { RatingSlider } from "./RatingSlider";
-import { SportChip } from "./SportChip";
-import { TagPill } from "./TagPill";
+import { Button } from "../ui/Button";
+import { Crest } from "../ui/Crest";
+import { Icon } from "../ui/Icon";
+import { Label } from "../ui/Label";
+import { RatingSlider } from "../ui/RatingSlider";
+import { SportChip } from "../ui/SportChip";
+import { TagPill } from "../ui/TagPill";
 
 interface RateModalProps {
   match: Match;
-  existing?: UserLog;
+  existing?: Omit<UserLog, "ts">;
+  saving?: boolean;
   onClose: () => void;
   onSave: (log: Omit<UserLog, "ts">) => void;
 }
 
-export function RateModal({ match, existing, onClose, onSave }: RateModalProps) {
+export function RateModal({ match, existing, saving, onClose, onSave }: RateModalProps) {
   const [rating, setRating] = useState(existing?.rating ?? 0);
   const [live, setLive] = useState(existing?.live ?? false);
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
@@ -63,9 +68,7 @@ export function RateModal({ match, existing, onClose, onSave }: RateModalProps) 
         </div>
 
         <div style={{ textAlign: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", fontFamily: "var(--font-mono, monospace)", letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 16 }}>
-            How was it?
-          </div>
+          <Label variant="section" style={{ textAlign: "center", marginBottom: 16 }}>How was it?</Label>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
             <RatingSlider value={rating} onChange={setRating} />
           </div>
@@ -87,9 +90,7 @@ export function RateModal({ match, existing, onClose, onSave }: RateModalProps) 
           <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>I watched this one live</span>
         </button>
 
-        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", fontFamily: "var(--font-mono, monospace)", letterSpacing: 0.4, textTransform: "uppercase", margin: "6px 0 10px" }}>
-          Add tags
-        </div>
+        <Label style={{ margin: "6px 0 10px" }}>Add tags</Label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
           {TAGS.map((t) => <TagPill key={t} label={t} active={tags.includes(t)} onClick={() => toggleTag(t)} />)}
         </div>
@@ -99,26 +100,20 @@ export function RateModal({ match, existing, onClose, onSave }: RateModalProps) 
           onChange={(e) => setReview(e.target.value)}
           placeholder="Add a review (optional)…"
           rows={3}
+          className="bw-field"
           style={{
             width: "100%", boxSizing: "border-box", border: "1px solid var(--border)", background: "var(--surface)",
             borderRadius: 14, padding: 14, fontSize: 15, color: "var(--text)", fontFamily: "inherit", resize: "none",
-            outline: "none", lineHeight: 1.5, marginBottom: 18,
+            lineHeight: 1.5, marginBottom: 18,
           }}
         />
 
-        <button
-          disabled={!rating}
+        <Button
+          fullWidth size="lg" disabled={!rating || saving}
           onClick={() => onSave({ rating, live, tags, review })}
-          style={{
-            width: "100%", height: 52, borderRadius: 15, border: "none",
-            cursor: rating ? "pointer" : "not-allowed",
-            background: rating ? "var(--accent)" : "var(--surface-2)",
-            color: rating ? "var(--accent-text)" : "var(--text-faint)",
-            fontSize: 16.5, fontWeight: 800, fontFamily: "inherit",
-          }}
         >
-          {existing ? "Update rating" : "Save to diary"}
-        </button>
+          {saving ? "Saving…" : existing ? "Update rating" : "Save to diary"}
+        </Button>
       </div>
     </div>
   );

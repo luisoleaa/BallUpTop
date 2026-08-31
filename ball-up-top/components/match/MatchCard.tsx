@@ -1,26 +1,25 @@
-import Link from "next/link";
-import type { Match, UserLog } from "@/lib/types";
-import { Crest } from "./Crest";
-import { RatingValue } from "./RatingValue";
-import { SportChip } from "./SportChip";
-import { StatusPill } from "./StatusPill";
+// Clickable card summarizing one match: sport + status, both sides with
+// crest/name/score, and community rating. `hideScores` isn't wired to any
+// toggle yet, but the prop already works for spoiler-free mode later.
+import type { Match } from "@/lib/types";
+import { Card } from "../ui/Card";
+import { Crest } from "../ui/Crest";
+import { RatingValue } from "../ui/RatingValue";
+import { SportChip } from "../ui/SportChip";
+import { StatusPill } from "../ui/StatusPill";
 
 export function MatchCard({
   match, hideScores, userLog,
 }: {
   match: Match;
   hideScores?: boolean;
-  userLog?: UserLog;
+  userLog?: { rating: number };
 }) {
   return (
-    <Link
+    <Card
       href={`/matches/${match.id}`}
-      className="bw-card"
-      style={{
-        textAlign: "left", background: "var(--surface)", border: "1px solid var(--border)",
-        borderRadius: "var(--radius)", padding: 18, display: "flex", flexDirection: "column",
-        gap: 14, textDecoration: "none", boxShadow: "var(--shadow)",
-      }}
+      padding={18}
+      style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <SportChip sport={match.sport} />
@@ -50,6 +49,6 @@ export function MatchCard({
             : (match.logs ? match.logs.toLocaleString() + " logs" : "")}
         </span>
       </div>
-    </Link>
+    </Card>
   );
 }

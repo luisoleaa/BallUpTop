@@ -1,3 +1,5 @@
+// Hand-drawn national flag SVGs, one branch per ISO-ish country code, used
+// as the middle tier of Crest's logo -> flag -> monogram fallback chain.
 export function FlagBadge({ code, size }: { code: string; size: number }) {
   const p = { width: size, height: size, viewBox: "0 0 24 24", style: { display: "block" as const } };
   if (code === "ar") return (

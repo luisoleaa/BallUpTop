@@ -1,3 +1,5 @@
+// Renders a match's status as a pill: a pulsing red "LIVE + clock" badge,
+// a plain upcoming date, or a muted "FINAL + date".
 import type { Match } from "@/lib/types";
 
 export function StatusPill({ match }: { match: Pick<Match, "status" | "clock" | "date"> }) {
@@ -5,7 +7,7 @@ export function StatusPill({ match }: { match: Pick<Match, "status" | "clock" | 
     return (
       <span style={{
         display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700,
-        letterSpacing: 0.4, color: "#fff", background: "#e0392b", padding: "3px 8px", borderRadius: 99,
+        letterSpacing: 0.4, color: "var(--live-text)", background: "var(--live)", padding: "3px 8px", borderRadius: 99,
         fontFamily: "var(--font-mono, monospace)",
       }}>
         <span className="rm-pulse" style={{ width: 6, height: 6, borderRadius: 99, background: "#fff" }} />

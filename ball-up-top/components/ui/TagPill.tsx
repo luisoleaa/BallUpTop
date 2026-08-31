@@ -1,5 +1,6 @@
 "use client";
 
+// Generic pill button, used for match tags, sport filters, etc.
 export function TagPill({
   label, active, onClick, small,
 }: {

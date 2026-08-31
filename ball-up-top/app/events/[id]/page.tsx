@@ -1,8 +1,8 @@
+// Event detail page: a UFC fight card, listing its fights as MatchCards.
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getEvent, MATCHES, SPORTS } from "@/lib/data";
-import { HomeGrid } from "@/components/HomeGrid";
-import { Icon } from "@/components/Icon";
+import { HomeGrid } from "@/components/layout/HomeGrid";
+import { BackLink } from "@/components/ui/BackLink";
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,12 +13,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
 
   return (
     <main style={{ maxWidth: 860, margin: "0 auto", padding: "36px 28px 80px" }}>
-      <Link href="/" className="bw-navlink" style={{
-        display: "flex", alignItems: "center", gap: 7, textDecoration: "none",
-        color: "var(--text-muted)", fontSize: 14, fontWeight: 700, marginBottom: 22,
-      }}>
-        <Icon name="chevL" size={16} stroke="var(--text-muted)" />Back
-      </Link>
+      <BackLink />
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
         <span style={{

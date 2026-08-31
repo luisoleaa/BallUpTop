@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
-import { getMatch, REVIEWS, SPORTS } from "@/lib/data";
-import { MatchDetailClient } from "@/components/MatchDetailClient";
+import { getMatch, REVIEWS } from "@/lib/data";
+import { getUser } from "@/lib/supabase/server";
+import { getUserRatingForMatch } from "@/lib/queries/ratings";
+import { MatchDetailClient } from "@/components/match/MatchDetailClient";
 
 export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -8,9 +10,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   if (!match) notFound();
 
   const reviews = REVIEWS[id] ?? [];
-  const sport = SPORTS[match.sport];
 
-  // rating distribution (mock, weighted toward avg)
+  // Synthetic decay curve from avg -- not real per-bucket vote data.
   let dist: number[] | null = null;
   if (match.avg != null) {
     const center = match.avg;
@@ -20,5 +21,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     });
   }
 
-  return <MatchDetailClient match={match} sport={sport} reviews={reviews} dist={dist} />;
+  const user = await getUser();
+  const initialRating = user ? await getUserRatingForMatch(user.id, id) : null;
+
+  return <MatchDetailClient match={match} reviews={reviews} dist={dist} initialRating={initialRating} />;
 }

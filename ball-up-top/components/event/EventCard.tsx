@@ -1,21 +1,18 @@
-import Link from "next/link";
+// Clickable card summarizing a UFC fight card: main event crests, name, venue, fight count.
 import { MATCHES, SPORTS } from "@/lib/data";
 import type { Event } from "@/lib/types";
-import { Crest } from "./Crest";
-import { Icon } from "./Icon";
+import { Card } from "../ui/Card";
+import { Crest } from "../ui/Crest";
+import { Icon } from "../ui/Icon";
 
 export function EventCard({ event }: { event: Event }) {
   const fights = event.fights.map(id => MATCHES.find(m => m.id === id)).filter(Boolean) as typeof MATCHES;
   const main = fights[0];
   return (
-    <Link
+    <Card
       href={`/events/${event.id}`}
-      className="bw-card"
-      style={{
-        textAlign: "left", background: "var(--surface)", border: "1px solid var(--border)",
-        borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column",
-        gap: 10, textDecoration: "none", boxShadow: "var(--shadow)",
-      }}
+      padding={16}
+      style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 10 }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{
@@ -42,6 +39,6 @@ export function EventCard({ event }: { event: Event }) {
       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
         {fights.length} fights · {main ? `${main.a.name} vs ${main.b.name}` : ""}
       </div>
-    </Link>
+    </Card>
   );
 }

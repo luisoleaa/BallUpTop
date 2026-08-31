@@ -1,5 +1,6 @@
 "use client";
 
+// Fixed-position toast for the app-store's current `toast` message.
 import { useApp } from "@/lib/app-store";
 import { Icon } from "./Icon";
 

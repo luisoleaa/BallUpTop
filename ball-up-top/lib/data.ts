@@ -1,5 +1,8 @@
+// Mock data for the Match/Event system (browse, matches, events). Pages read
+// this through getMatch/getEvent so a real provider can swap in later.
 import type { Event, Match, SeedReview, Sport, SportSlug, UserLog } from "./types";
 
+// Display name + brand color per sport, keyed by SportSlug.
 export const SPORTS: Record<SportSlug, Sport> = {
   soccer:  { name: "Soccer",  color: "#16a34a" },
   nba:     { name: "NBA",     color: "#ea580c" },
@@ -12,6 +15,7 @@ export const SPORTS: Record<SportSlug, Sport> = {
   cricket: { name: "Cricket", color: "#0d9488" },
 };
 
+// All mock matches/games/fights/races across every sport, live/final/upcoming.
 export const MATCHES: Match[] = [
   {
     id: "m1", sport: "soccer", league: "Copa América · Group A", status: "live", clock: "67'",
@@ -118,6 +122,7 @@ export const MATCHES: Match[] = [
   },
 ];
 
+// UFC fight cards; each references its fights by Match id.
 export const EVENTS: Event[] = [
   {
     id: "e2", name: "UFC 319", venue: "T-Mobile Arena · Las Vegas", date: "Saturday · Main card 9 PM",
@@ -129,38 +134,51 @@ export const EVENTS: Event[] = [
   },
 ];
 
+// Seeded fan reviews shown on match detail pages, keyed by match id.
 export const REVIEWS: Record<string, SeedReview[]> = {
   m4: [
-    { user: "claymccourt", rating: 10, live: true, tags: ["Instant classic"], text: "Five sets of pure theatre. Saved match point and somehow lifted his level. Best final in years.", time: "11d" },
-    { user: "baseline_betty", rating: 9, live: false, tags: ["Comeback"], text: "Sinner was two sets up and you still felt Carlos would find a way. Drained but glad I stayed up.", time: "11d" },
-    { user: "gridironghost", rating: 10, live: true, tags: [], text: "Did not move from the couch for four and a half hours. No regrets.", time: "10d" },
+    { user: "claymccourt", rating: 10, live: true, tags: ["Instant classic"], text: "Five sets of pure theatre. Saved match point and somehow lifted his level. Best final in years.", time: "11d", likes: 312 },
+    { user: "baseline_betty", rating: 9, live: false, tags: ["Comeback"], text: "Sinner was two sets up and you still felt Carlos would find a way. Drained but glad I stayed up.", time: "11d", likes: 184 },
+    { user: "gridironghost", rating: 10, live: true, tags: [], text: "Did not move from the couch for four and a half hours. No regrets.", time: "10d", likes: 441 },
   ],
   m8: [
-    { user: "octagon_op", rating: 10, live: true, tags: ["Blowout"], text: "Felt it coming the second the bell rang. Scary precision.", time: "12d" },
-    { user: "mma_marg", rating: 8, live: false, tags: [], text: "Short but electric. Undercard carried the rest of the night though.", time: "12d" },
+    { user: "octagon_op", rating: 10, live: true, tags: ["Blowout"], text: "Felt it coming the second the bell rang. Scary precision.", time: "12d", likes: 226 },
+    { user: "mma_marg", rating: 8, live: false, tags: [], text: "Short but electric. Undercard carried the rest of the night though.", time: "12d", likes: 97 },
   ],
   m13: [
-    { user: "volk_army", rating: 8.5, live: true, tags: [], text: "Masterclass over five rounds. The champ never looked in trouble.", time: "12d" },
+    { user: "volk_army", rating: 8.5, live: true, tags: [], text: "Masterclass over five rounds. The champ never looked in trouble.", time: "12d", likes: 63 },
   ],
   m10: [
-    { user: "puckluck", rating: 10, live: true, tags: ["Heartbreak", "Instant classic"], text: "Game 7, overtime, Cup on the line. This is why we watch sports. Gutted but what a game.", time: "3d" },
-    { user: "rinkside", rating: 9, live: true, tags: ["Comeback"], text: "Down two in the third and clawed it back. The OT was unbearable in the best way.", time: "3d" },
+    { user: "puckluck", rating: 10, live: true, tags: ["Heartbreak", "Instant classic"], text: "Game 7, overtime, Cup on the line. This is why we watch sports. Gutted but what a game.", time: "3d", likes: 528 },
+    { user: "rinkside", rating: 9, live: true, tags: ["Comeback"], text: "Down two in the third and clawed it back. The OT was unbearable in the best way.", time: "3d", likes: 201 },
   ],
   m5: [
-    { user: "tikitaka", rating: 8, live: true, tags: [], text: "Tactical chess in the first half, chaos in the second. Worth the watch.", time: "20d" },
-    { user: "leftbackliam", rating: 9, live: false, tags: ["Instant classic"], text: "Final goal was offside by a toenail and they still gave it. Drama to the end.", time: "19d" },
+    { user: "tikitaka", rating: 8, live: true, tags: [], text: "Tactical chess in the first half, chaos in the second. Worth the watch.", time: "20d", likes: 88 },
+    { user: "leftbackliam", rating: 9, live: false, tags: ["Instant classic"], text: "Final goal was offside by a toenail and they still gave it. Drama to the end.", time: "19d", likes: 356 },
   ],
 };
 
+// Sample diary entries -- not currently wired into app-store.tsx.
 export const SEED_LOGS: Record<string, UserLog> = {
   m6: { rating: 7.0, review: "Blowout but the rookie minutes were fun to watch.", tags: ["Blowout"], live: true, ts: Date.now() - 86400000 * 4 },
   m9: { rating: 9.0, review: "", tags: ["Instant classic"], live: false, ts: Date.now() - 86400000 * 7 },
 };
 
+// Fixed vocabulary for tagging a logged match (RateModal, TagPill).
 export const TAGS = ["Instant classic", "Comeback", "Blowout", "Heartbreak", "Snoozer", "Upset", "Overtime"];
 
 export function getMatch(id: string): Match | undefined {
   return MATCHES.find((m) => m.id === id);
+}
+
+// Flattens every seeded fan review across all matches and returns the
+// most-liked `limit`, each paired with its match id -- powers the home
+// page's "Popular reviews" section (see components/layout/PopularReviews.tsx).
+export function getTopReviews(limit: number): Array<SeedReview & { matchId: string }> {
+  return Object.entries(REVIEWS)
+    .flatMap(([matchId, reviews]) => reviews.map((r) => ({ ...r, matchId })))
+    .sort((a, b) => b.likes - a.likes)
+    .slice(0, limit);
 }
 
 export function getEvent(id: string): Event | undefined {

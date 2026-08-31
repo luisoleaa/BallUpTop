@@ -1,35 +1,41 @@
 "use client";
 
+// Client half of the match detail page: scoreboard, fan reviews, rating
+// distribution, and the user's own rating or a CTA to open RateModal.
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/app-store";
-import type { Match, SeedReview, Sport } from "@/lib/types";
-import { Crest } from "./Crest";
-import { Icon } from "./Icon";
+import { saveRatingAction } from "@/lib/actions/ratings";
+import type { Match, Rating, SeedReview } from "@/lib/types";
+import { BackLink } from "../ui/BackLink";
+import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
+import { Crest } from "../ui/Crest";
+import { EmptyState } from "../ui/EmptyState";
+import { Icon } from "../ui/Icon";
+import { Label } from "../ui/Label";
 import { RateModal } from "./RateModal";
-import { RatingValue, ratingColor } from "./RatingValue";
-import { SportChip } from "./SportChip";
-import { StatusPill } from "./StatusPill";
-import { TagPill } from "./TagPill";
+import { RatingValue, ratingColor } from "../ui/RatingValue";
+import { SportChip } from "../ui/SportChip";
+import { StatusPill } from "../ui/StatusPill";
+import { TagPill } from "../ui/TagPill";
 
 interface Props {
   match: Match;
-  sport: Sport;
   reviews: SeedReview[];
   dist: number[] | null;
+  initialRating: Rating | null;
 }
 
-const CARD: React.CSSProperties = {
-  background: "var(--surface)", border: "1px solid var(--border)",
-  borderRadius: "var(--radius)", padding: 22, boxShadow: "var(--shadow)",
-};
-
-export function MatchDetailClient({ match, sport, reviews, dist }: Props) {
-  const { user, logs, saveLog, showToast } = useApp();
+export function MatchDetailClient({ match, reviews, dist, initialRating }: Props) {
+  const { user, showToast, refreshRatings } = useApp();
   const router = useRouter();
   const [rating, setRating] = useState(false);
-  const userLog = logs[match.id];
+  const [saving, setSaving] = useState(false);
+  const userRating = initialRating;
+  const existingLog = userRating
+    ? { rating: userRating.rating, review: userRating.review ?? "", tags: userRating.tags, live: userRating.watchedLive }
+    : undefined;
 
   const winner =
     match.status === "final" && match.a.score != null && typeof match.a.score === "number"
@@ -41,20 +47,22 @@ export function MatchDetailClient({ match, sport, reviews, dist }: Props) {
     setRating(true);
   };
 
-  const handleSave = (log: Parameters<typeof saveLog>[1]) => {
-    saveLog(match.id, log);
-    setRating(false);
-    showToast("Logged to your diary");
+  const handleSave = async (log: { rating: number; review: string; tags: string[]; live: boolean }) => {
+    setSaving(true);
+    try {
+      await saveRatingAction(match.id, log);
+      setRating(false);
+      showToast("Logged to your diary");
+      router.refresh();
+      await refreshRatings();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <main style={{ maxWidth: 1024, margin: "0 auto", padding: "36px 28px 80px" }}>
-      <Link href="/" className="bw-navlink" style={{
-        display: "flex", alignItems: "center", gap: 7, textDecoration: "none",
-        color: "var(--text-muted)", fontSize: 14, fontWeight: 700, marginBottom: 22,
-      }}>
-        <Icon name="chevL" size={16} stroke="var(--text-muted)" />Back
-      </Link>
+      <BackLink />
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
         <SportChip sport={match.sport} />
@@ -66,7 +74,7 @@ export function MatchDetailClient({ match, sport, reviews, dist }: Props) {
         {/* Left */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           {/* Scoreboard */}
-          <div style={{ ...CARD, padding: "32px 26px" }}>
+          <Card padding="32px 26px">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, opacity: winner && winner !== "a" ? 0.5 : 1 }}>
                 <Crest side={match.a} size={78} />
@@ -89,15 +97,17 @@ export function MatchDetailClient({ match, sport, reviews, dist }: Props) {
                 <div style={{ fontWeight: 700, fontSize: 16, textAlign: "center", lineHeight: 1.2, color: "var(--text)" }}>{match.b.name}</div>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Fan reviews */}
           <div>
-            <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: "var(--text-muted)", fontFamily: "var(--font-mono, monospace)", margin: "0 0 6px" }}>
-              Fan reviews
-            </h2>
+            <Label as="h2" variant="section" style={{ marginBottom: 6 }}>Fan reviews</Label>
             {reviews.length === 0 && (
-              <p style={{ color: "var(--text-faint)", fontSize: 14, fontFamily: "var(--font-mono, monospace)", padding: "24px 0" }}>No reviews yet.</p>
+              <EmptyState
+                image="/Lebron-Lob-ASCII.png" imageWidth={870} imageHeight={1536}
+                alt="ASCII-art illustration of LeBron James mid-lob dunk"
+                title="No reviews yet."
+              />
             )}
             {reviews.map((r, i) => (
               <div key={i} style={{ padding: "18px 0", borderBottom: "1px solid var(--border)" }}>
@@ -127,12 +137,10 @@ export function MatchDetailClient({ match, sport, reviews, dist }: Props) {
 
         {/* Right */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Community rating */}
+          {/* Community rating -- dist is a synthetic curve, not real vote data */}
           {match.avg != null && dist && (
-            <div style={CARD}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", fontFamily: "var(--font-mono, monospace)", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 14 }}>
-                Community rating
-              </div>
+            <Card padding={22}>
+              <Label variant="sub" style={{ marginBottom: 14 }}>Community rating</Label>
               <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
                 <div>
                   <div style={{ fontFamily: "var(--font-mono, monospace)", fontWeight: 800, fontSize: 42, lineHeight: 1, color: ratingColor(match.avg) }}>
@@ -153,43 +161,44 @@ export function MatchDetailClient({ match, sport, reviews, dist }: Props) {
                   ))}
                 </div>
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Your rating */}
-          {userLog && user ? (
-            <div style={{ background: "var(--accent-soft)", border: "1px solid var(--accent)", borderRadius: "var(--radius)", padding: 20 }}>
+          {userRating && user ? (
+            <Card tone="accent" padding={20}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent-strong)", fontFamily: "var(--font-mono, monospace)", letterSpacing: 0.4 }}>YOUR RATING</span>
-                <button onClick={requestRate} style={{ display: "flex", alignItems: "center", gap: 6, border: "none", background: "transparent", color: "var(--accent-strong)", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-                  <Icon name="pen" size={15} stroke="var(--accent-strong)" />Edit
-                </button>
+                <Label color="var(--accent-strong)">YOUR RATING</Label>
+                <Button
+                  variant="ghost" size="sm" onClick={requestRate}
+                  icon={<Icon name="pen" size={15} stroke="var(--accent-strong)" />}
+                >
+                  Edit
+                </Button>
               </div>
-              <RatingValue value={userLog.rating} size={20} />
-              {userLog.live && <span style={{ marginLeft: 10, fontSize: 11, color: "var(--accent-strong)", fontFamily: "var(--font-mono, monospace)" }}>· watched live</span>}
-              {userLog.tags && userLog.tags.length > 0 && (
+              <RatingValue value={userRating.rating} size={20} />
+              {userRating.watchedLive && <span style={{ marginLeft: 10, fontSize: 11, color: "var(--accent-strong)", fontFamily: "var(--font-mono, monospace)" }}>· watched live</span>}
+              {userRating.tags && userRating.tags.length > 0 && (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
-                  {userLog.tags.map((tg) => <TagPill key={tg} label={tg} small active />)}
+                  {userRating.tags.map((tg) => <TagPill key={tg} label={tg} small active />)}
                 </div>
               )}
-              {userLog.review && <p style={{ fontSize: 14, margin: "12px 0 0", lineHeight: 1.5, color: "var(--text)" }}>{userLog.review}</p>}
-            </div>
+              {userRating.review && <p style={{ fontSize: 14, margin: "12px 0 0", lineHeight: 1.5, color: "var(--text)" }}>{userRating.review}</p>}
+            </Card>
           ) : (
-            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 20, boxShadow: "var(--shadow)" }}>
-              <button onClick={requestRate} style={{
-                width: "100%", height: 52, borderRadius: 14, border: "none",
-                background: "var(--accent)", color: "var(--accent-text)", fontSize: 16, fontWeight: 800,
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 9, cursor: "pointer", fontFamily: "inherit",
-              }}>
-                <Icon name="plus" size={19} stroke="var(--accent-text)" />
+            <Card padding={20}>
+              <Button
+                fullWidth size="lg" onClick={requestRate}
+                icon={<Icon name="plus" size={19} stroke="var(--accent-text)" />}
+              >
                 {match.status === "upcoming" ? "Set a reminder" : "Rate this match"}
-              </button>
+              </Button>
               {!user && (
                 <p style={{ fontSize: 12.5, color: "var(--text-faint)", textAlign: "center", margin: "12px 0 0", lineHeight: 1.5 }}>
                   You&rsquo;ll be asked to sign in first — rating requires an account.
                 </p>
               )}
-            </div>
+            </Card>
           )}
         </div>
       </div>
@@ -197,7 +206,8 @@ export function MatchDetailClient({ match, sport, reviews, dist }: Props) {
       {rating && (
         <RateModal
           match={match}
-          existing={userLog}
+          existing={existingLog}
+          saving={saving}
           onClose={() => setRating(false)}
           onSave={handleSave}
         />

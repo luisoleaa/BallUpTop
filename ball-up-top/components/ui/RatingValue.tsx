@@ -1,3 +1,4 @@
+// Maps a 1-10 rating to a red -> green OKLCH hue.
 export function ratingColor(v: number): string {
   const t = Math.max(0, Math.min(1, (v - 3) / 6.5));
   return `oklch(0.74 0.17 ${Math.round(28 + t * 117)})`;

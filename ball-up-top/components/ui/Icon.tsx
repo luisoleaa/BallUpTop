@@ -1,6 +1,9 @@
+// Single icon component with an if/else chain per icon name, each branch
+// returning a full inline svg. This pattern is intentional over a PATHS
+// lookup object -- that approach was tried and abandoned in the original build.
 export type IconName =
   | "home" | "search" | "activity" | "chevL" | "chevR" | "close"
-  | "check" | "plus" | "bell" | "pen" | "user" | "apple";
+  | "check" | "plus" | "bell" | "pen" | "user" | "apple" | "flame";
 
 interface IconProps {
   name: IconName;
@@ -27,6 +30,12 @@ export function Icon({ name, size = 22, stroke = "currentColor", fill = "none", 
   if (name === "apple") return (
     <svg {...common} fill={stroke} stroke="none">
       <path d="M16 13c0-2.5 2-3.5 2-3.5-1-1.5-2.7-1.7-3.3-1.7-1.4-.1-2.7.8-3.4.8-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.2 0 2-1 2.8-2.2.6-.9.9-1.4 1.4-2.4-3.3-1.3-3.2-5.4-2.8-6.1zM13.8 6.3c.6-.8 1-1.8.9-2.8-.9 0-2 .6-2.6 1.3-.6.7-1.1 1.7-.9 2.7 1 0 2-.5 2.6-1.2z" />
+    </svg>
+  );
+  if (name === "flame") return (
+    <svg {...common} fill={stroke} stroke="none">
+      <path d="M12.4 2.55a1 1 0 00-1.45-.38c-.86.57-1.4 1.44-1.83 2.44-.43 1-.75 2.2-1 3.42a26 26 0 00-.4 2.9 2.6 2.6 0 01-.95-1.07c-.33-.68-.4-1.53-.4-2.65a1 1 0 00-1.62-.79A7 7 0 1016.63 11a7 7 0 00-2.2-5.1c-.6-.6-1-1-1.35-1.47-.37-.48-.72-1.06-1.2-2.03z" />
+      <path d="M12.12 15.12A3 3 0 017 13c.6.3 1.5.5 2.5.5 0-1 .5-4 1.25-4.5.5 1 .79 1.29 1.37 1.88A3 3 0 0113 15a3 3 0 01-.88.12z" />
     </svg>
   );
   return null;

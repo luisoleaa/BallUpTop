@@ -1,3 +1,5 @@
+// Small uppercase label with a colored dot identifying a match's sport
+// (e.g. "SOCCER", "NBA"), used on cards and detail pages.
 import { SPORTS } from "@/lib/data";
 import type { SportSlug } from "@/lib/types";
 

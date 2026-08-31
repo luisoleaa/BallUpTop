@@ -1,17 +1,19 @@
 "use client";
 
+// Browse page: text search + sport filter pills over all matches.
 import { useState } from "react";
 import { MATCHES, SPORTS } from "@/lib/data";
 import { useApp } from "@/lib/app-store";
 import type { SportSlug } from "@/lib/types";
-import { Icon } from "./Icon";
-import { MatchCard } from "./MatchCard";
-import { TagPill } from "./TagPill";
+import { EmptyState } from "../ui/EmptyState";
+import { Icon } from "../ui/Icon";
+import { MatchCard } from "../match/MatchCard";
+import { TagPill } from "../ui/TagPill";
 
 export function BrowseClient() {
   const [q, setQ] = useState("");
   const [sport, setSport] = useState<"all" | SportSlug>("all");
-  const { logs } = useApp();
+  const { ratingsByMatch } = useApp();
 
   const filtered = MATCHES.filter((m) => {
     if (sport !== "all" && m.sport !== sport) return false;
@@ -27,10 +29,13 @@ export function BrowseClient() {
       <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: -1, margin: "0 0 20px", color: "var(--text)" }}>
         Browse matches
       </h1>
-      <div style={{
-        display: "flex", alignItems: "center", gap: 10, background: "var(--surface-2)",
-        borderRadius: 13, padding: "0 16px", height: 50, border: "1px solid var(--border)", maxWidth: 520,
-      }}>
+      <div
+        className="bw-search"
+        style={{
+          display: "flex", alignItems: "center", gap: 10, background: "var(--surface-2)",
+          borderRadius: 13, padding: "0 16px", height: 50, border: "1px solid var(--border)", maxWidth: 520,
+        }}
+      >
         <Icon name="search" size={19} stroke="var(--text-muted)" />
         <input
           value={q}
@@ -58,12 +63,14 @@ export function BrowseClient() {
         ))}
       </div>
       {filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "80px 0", color: "var(--text-faint)", fontFamily: "var(--font-mono, monospace)", fontSize: 13 }}>
-          No matches found
-        </div>
+        <EmptyState
+          image="/MJ-3peet-ASCII.png" imageWidth={1029} imageHeight={1548}
+          alt="ASCII-art portrait of Michael Jordan" opacity={0.3}
+          title="No matches found"
+        />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginTop: 16 }}>
-          {filtered.map((m) => <MatchCard key={m.id} match={m} userLog={logs[m.id]} />)}
+          {filtered.map((m) => <MatchCard key={m.id} match={m} userLog={ratingsByMatch[m.id]} />)}
         </div>
       )}
     </main>
