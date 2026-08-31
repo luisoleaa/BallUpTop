@@ -21,6 +21,7 @@ export interface Side {
   abbr: string;
   color: string;
   flag?: string;
+  // string for F1 positions ("P1") and UFC results ("W"/"L")
   score: number | string | null;
 }
 
@@ -56,6 +57,7 @@ export interface SeedReview {
   tags: string[];
   text: string;
   time: string;
+  likes: number;
 }
 
 export interface UserLog {
@@ -67,6 +69,19 @@ export interface UserLog {
 }
 
 export interface User {
+  id: string;
   name: string;
   email: string;
+}
+
+// DB-backed rating/review row (public.ratings)
+export interface Rating {
+  id: string;
+  matchId: string;
+  rating: number;
+  review: string | null;
+  tags: string[];
+  watchedLive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

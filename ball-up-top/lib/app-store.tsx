@@ -1,5 +1,8 @@
 "use client";
 
+// Global client state: signed-in user, their ratings by match id, and toasts.
+// initialUser comes from a server-side getUser() call in app/layout.tsx to
+// avoid a flash of signed-out on load.
 import {
   createContext,
   ReactNode,
@@ -8,65 +11,71 @@ import {
   useEffect,
   useState,
 } from "react";
-import { SEED_LOGS } from "./data";
-import type { User, UserLog } from "./types";
-
-const LOGS_KEY = "ballup_logs_v2";
-const USER_KEY = "ballup_web_user_v2";
+import { createClient } from "./supabase/client";
+import { toRating, type RatingRow } from "./ratings-row";
+import { toUser } from "./to-user";
+import type { Rating, User } from "./types";
 
 interface AppContextValue {
   user: User | null;
-  signIn: (u: User) => void;
-  signOut: () => void;
-  logs: Record<string, UserLog>;
-  saveLog: (matchId: string, log: Omit<UserLog, "ts">) => void;
-  clearLogs: () => void;
+  signOut: () => Promise<void>;
+  ratingsByMatch: Record<string, Rating>;
+  refreshRatings: () => Promise<void>;
   toast: string | null;
   showToast: (msg: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [logs, setLogs] = useState<Record<string, UserLog>>(SEED_LOGS);
-  const [loaded, setLoaded] = useState(false);
+export function AppProvider({
+  children,
+  initialUser,
+}: {
+  children: ReactNode;
+  initialUser: User | null;
+}) {
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [ratingsByMatch, setRatingsByMatch] = useState<Record<string, Rating>>({});
   const [toast, setToast] = useState<string | null>(null);
 
+  // Re-sync whenever the server-provided user changes across a navigation.
   useEffect(() => {
-    try {
-      const rawUser = localStorage.getItem(USER_KEY);
-      if (rawUser) setUser(JSON.parse(rawUser));
-      const rawLogs = localStorage.getItem(LOGS_KEY);
-      if (rawLogs) setLogs(JSON.parse(rawLogs));
-      else setLogs({ ...SEED_LOGS });
-    } catch {
-      // fall through to defaults
-    }
-    setLoaded(true);
+    setUser(initialUser);
+  }, [initialUser]);
+
+  // Stay reactive to client-driven auth events (sign-out, token refresh).
+  useEffect(() => {
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(toUser(session?.user ?? null));
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadRatings = useCallback(async (userId: string) => {
+    const supabase = createClient();
+    const { data } = await supabase.from("ratings").select("*").eq("user_id", userId);
+    const map: Record<string, Rating> = {};
+    ((data as RatingRow[]) ?? []).forEach((row) => {
+      map[row.match_id] = toRating(row);
+    });
+    setRatingsByMatch(map);
   }, []);
 
   useEffect(() => {
-    if (!loaded) return;
-    try { localStorage.setItem(LOGS_KEY, JSON.stringify(logs)); } catch {}
-  }, [logs, loaded]);
+    if (user) loadRatings(user.id);
+    else setRatingsByMatch({});
+  }, [user, loadRatings]);
 
-  const signIn = useCallback((u: User) => {
-    setUser(u);
-    try { localStorage.setItem(USER_KEY, JSON.stringify(u)); } catch {}
-  }, []);
+  const refreshRatings = useCallback(async () => {
+    if (user) await loadRatings(user.id);
+  }, [user, loadRatings]);
 
-  const signOut = useCallback(() => {
-    setUser(null);
-    try { localStorage.removeItem(USER_KEY); } catch {}
-  }, []);
-
-  const saveLog = useCallback((matchId: string, log: Omit<UserLog, "ts">) => {
-    setLogs((prev) => ({ ...prev, [matchId]: { ...log, ts: Date.now() } }));
-  }, []);
-
-  const clearLogs = useCallback(() => {
-    setLogs({});
+  const signOut = useCallback(async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
   }, []);
 
   const showToast = useCallback((msg: string) => {
@@ -75,12 +84,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AppContext.Provider value={{ user, signIn, signOut, logs, saveLog, clearLogs, toast, showToast }}>
+    <AppContext.Provider value={{ user, signOut, ratingsByMatch, refreshRatings, toast, showToast }}>
       {children}
     </AppContext.Provider>
   );
 }
 
+// Throws if used outside AppProvider.
 export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
