@@ -6,6 +6,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/app-store";
 import { saveRatingAction } from "@/lib/actions/ratings";
+import { timeAgo } from "@/lib/time-ago";
+import type { MatchReview } from "@/lib/queries/ratings";
 import type { Match, Rating, SeedReview } from "@/lib/types";
 import { BackLink } from "../ui/BackLink";
 import { Button } from "../ui/Button";
@@ -23,11 +25,24 @@ import { TagPill } from "../ui/TagPill";
 interface Props {
   match: Match;
   reviews: SeedReview[];
+  realReviews: MatchReview[];
   dist: number[] | null;
   initialRating: Rating | null;
 }
 
-export function MatchDetailClient({ match, reviews, dist, initialRating }: Props) {
+// Common shape for rendering real reviews (from the ratings table) above the
+// mock SeedReview seed content, without changing either source type.
+interface DisplayReview {
+  key: string;
+  name: string;
+  rating: number;
+  live: boolean;
+  tags: string[];
+  text: string;
+  time: string;
+}
+
+export function MatchDetailClient({ match, reviews, realReviews, dist, initialRating }: Props) {
   const { user, showToast, refreshRatings, hideScores } = useApp();
   const router = useRouter();
   const [rating, setRating] = useState(false);
@@ -45,6 +60,17 @@ export function MatchDetailClient({ match, reviews, dist, initialRating }: Props
     !scoreMasked && match.status === "final" && match.a.score != null && typeof match.a.score === "number"
       ? match.a.score > (match.b.score as number) ? "a" : (match.b.score as number) > match.a.score ? "b" : null
       : null;
+
+  const displayReviews: DisplayReview[] = [
+    ...realReviews.map((r): DisplayReview => ({
+      key: r.id, name: r.userName, rating: r.rating, live: r.watchedLive,
+      tags: r.tags, text: r.review, time: timeAgo(r.createdAt),
+    })),
+    ...reviews.map((r, i): DisplayReview => ({
+      key: `seed-${i}`, name: r.user, rating: r.rating, live: r.live,
+      tags: r.tags, text: r.text, time: r.time,
+    })),
+  ];
 
   const requestRate = () => {
     if (!user) { router.push(`/login?reason=rate`); return; }
@@ -120,24 +146,24 @@ export function MatchDetailClient({ match, reviews, dist, initialRating }: Props
           {/* Fan reviews */}
           <div>
             <Label as="h2" variant="section" style={{ marginBottom: 6 }}>Fan reviews</Label>
-            {reviews.length === 0 && (
+            {displayReviews.length === 0 && (
               <EmptyState
                 image="/Lebron-Lob-ASCII.png" imageWidth={870} imageHeight={1536}
                 alt="ASCII-art illustration of LeBron James mid-lob dunk"
                 title="No reviews yet."
               />
             )}
-            {reviews.map((r, i) => (
-              <div key={i} style={{ padding: "18px 0", borderBottom: "1px solid var(--border)" }}>
+            {displayReviews.map((r) => (
+              <div key={r.key} style={{ padding: "18px 0", borderBottom: "1px solid var(--border)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 9 }}>
                   <div style={{
                     width: 32, height: 32, borderRadius: 99, background: "var(--surface-2)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontFamily: "var(--font-mono, monospace)", fontWeight: 700, fontSize: 12, color: "var(--text-muted)",
                   }}>
-                    {r.user.slice(0, 2).toUpperCase()}
+                    {r.name.slice(0, 2).toUpperCase()}
                   </div>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>{r.user}</span>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>{r.name}</span>
                   {r.live && <span style={{ fontSize: 10, color: "var(--text-faint)", fontFamily: "var(--font-mono, monospace)" }}>· live</span>}
                   <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-faint)", fontFamily: "var(--font-mono, monospace)" }}>{r.time}</span>
                 </div>

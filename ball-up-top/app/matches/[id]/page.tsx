@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getMatch, REVIEWS } from "@/lib/data";
 import { getUser } from "@/lib/supabase/server";
-import { getUserRatingForMatch } from "@/lib/queries/ratings";
+import { getMatchReviews, getUserRatingForMatch } from "@/lib/queries/ratings";
 import { MatchDetailClient } from "@/components/match/MatchDetailClient";
 
 export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,6 +23,15 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
   const user = await getUser();
   const initialRating = user ? await getUserRatingForMatch(user.id, id) : null;
+  const realReviews = await getMatchReviews(id);
 
-  return <MatchDetailClient match={match} reviews={reviews} dist={dist} initialRating={initialRating} />;
+  return (
+    <MatchDetailClient
+      match={match}
+      reviews={reviews}
+      realReviews={realReviews}
+      dist={dist}
+      initialRating={initialRating}
+    />
+  );
 }
