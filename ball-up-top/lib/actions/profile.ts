@@ -22,7 +22,11 @@ export async function updateDisplayNameAction(
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?reason=settings");
 
-  const { error } = await supabase.from("profiles").update({ display_name: displayName }).eq("id", user.id);
+  // upsert, not update -- a user whose profiles row predates the
+  // handle_new_user trigger (or who signed up before that trigger existed)
+  // would otherwise have this silently no-op: an UPDATE matching zero rows
+  // doesn't error, it would just report "Saved" without persisting anything.
+  const { error } = await supabase.from("profiles").upsert({ id: user.id, display_name: displayName });
   if (error) return { error: error.message };
 
   return { saved: true };
