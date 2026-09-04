@@ -42,6 +42,13 @@ export const metadata: Metadata = {
     title: "Ball Up Top",
     description: "Rate every match you watch.",
   },
+  // iOS doesn't read the web manifest for "Add to Home Screen" polish --
+  // these are the equivalent apple-mobile-web-app-* meta tags.
+  appleWebApp: {
+    capable: true,
+    title: "Ball Up Top",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
