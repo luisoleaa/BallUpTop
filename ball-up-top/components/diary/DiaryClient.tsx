@@ -19,6 +19,7 @@ export function DiaryClient({ ratings }: { ratings: Rating[] }) {
   const avg = ratings.length
     ? ratings.reduce((s, r) => s + r.rating, 0) / ratings.length
     : 0;
+  const thisYear = ratings.filter((r) => new Date(r.createdAt).getFullYear() === new Date().getFullYear()).length;
 
   return (
     <main style={{ maxWidth: 860, margin: "0 auto", padding: "44px 28px 80px" }}>
@@ -29,7 +30,7 @@ export function DiaryClient({ ratings }: { ratings: Rating[] }) {
         Every match you&rsquo;ve logged, newest first.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-        {[["Logged", ratings.length], ["Avg rating", avg ? avg.toFixed(1) : "–"], ["This year", ratings.length]].map(([k, v]) => (
+        {[["Logged", ratings.length], ["Avg rating", avg ? avg.toFixed(1) : "–"], ["This year", thisYear]].map(([k, v]) => (
           <Card key={String(k)} padding="18px 16px">
             <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "var(--font-mono, monospace)", color: "var(--text)" }}>{v}</div>
             <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono, monospace)", marginTop: 2 }}>{k}</div>

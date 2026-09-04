@@ -62,7 +62,11 @@ export function RateModal({ match, existing, saving, onClose, onSave }: RateModa
             <div style={{ fontWeight: 700, fontSize: 15.5, color: "var(--text)" }}>{match.a.abbr} v {match.b.abbr}</div>
             <SportChip sport={match.sport} muted />
           </div>
-          <button onClick={close} style={{ border: "none", background: "var(--surface-2)", width: 34, height: 34, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <button
+            onClick={close}
+            aria-label="Close"
+            style={{ border: "none", background: "var(--surface-2)", width: 34, height: 34, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+          >
             <Icon name="close" size={18} stroke="var(--text-muted)" />
           </button>
         </div>

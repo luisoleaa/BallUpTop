@@ -67,6 +67,8 @@ export function Nav() {
         <button
           onClick={toggleHideScores}
           title={hideScores ? "Show scores" : "Hide scores (spoiler-free)"}
+          aria-label={hideScores ? "Show scores" : "Hide scores (spoiler-free)"}
+          aria-pressed={hideScores}
           style={{
             border: "1px solid var(--border)", background: hideScores ? "var(--surface-2)" : "transparent",
             width: 34, height: 34, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center",

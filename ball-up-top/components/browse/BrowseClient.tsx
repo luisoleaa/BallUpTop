@@ -47,7 +47,7 @@ export function BrowseClient() {
           }}
         />
         {q && (
-          <button onClick={() => setQ("")} style={{ border: "none", background: "transparent", cursor: "pointer", display: "flex" }}>
+          <button onClick={() => setQ("")} aria-label="Clear search" style={{ border: "none", background: "transparent", cursor: "pointer", display: "flex" }}>
             <Icon name="close" size={18} stroke="var(--text-faint)" />
           </button>
         )}
