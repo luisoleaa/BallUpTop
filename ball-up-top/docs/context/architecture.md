@@ -2,92 +2,166 @@
 
 ## Stack
 
-Next.js (App Router) + React + TypeScript + Tailwind CSS v4. No backend — game data
-is a static in-memory mock (`lib/data.ts`) and all user state (ratings, reviews,
-auth) lives in the browser's `localStorage` via `lib/app-store.tsx`.
+Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4 (used minimally —
+most styling is inline `style={{}}`, see design-system.md). **Supabase** (Postgres +
+Auth, RLS on every table) is the real backend — not mocked. Two data systems coexist
+on purpose:
 
-## Data model (`lib/types.ts`)
+- The original 9-sport `Match`/`Event` mock model (`lib/data.ts`) still powers the
+  home feed, `/browse`, `/matches/[id]`, `/events/[id]`. Real per-user data layers
+  (auth, ratings, reviews, profiles) are already wired to these mock matches — see
+  below — only the game/schedule data itself is still static.
+- A separate, fully real NBA/NFL/MLB historical game archive
+  (`nba_games`/`nfl_games`/`mlb_games`, backfilled from balldontlie.io — see
+  `scripts/`), searchable at `/search`.
 
+Auth, ratings/reviews, and profiles are real Supabase, not `localStorage` — see
+State management below.
+
+## Data model
+
+**Mock system** (`lib/types.ts`, `lib/data.ts`):
 - `SportSlug` — union of the 9 supported sports (`soccer, nba, nfl, tennis, mlb, f1,
   ufc, nhl, cricket`).
 - `Match` — the atomic unit (one game/fight/race). Fields: `sport`, `league`,
   `status` (`live | final | upcoming`), optional `clock`/`date`/`note`, two `Side`
-  objects (`a`, `b`), `avg` (community rating) and `logs` (log count), optional
-  `heat` (trending flag shown on the home page's "Popular This Week"), optional
-  `event` (parent `Event` id for UFC fights).
+  objects (`a`, `b`), `avg`/`logs` (still the mock community-rating fields), optional
+  `heat`/`event`.
 - `Side` — `name`, `abbr`, `color`, optional `flag`, and `score: number | string |
-  null` — **string scores are intentional**, they accommodate F1 finishing positions
-  (`"P1"`) and UFC results (`"W"`/`"L"`), not a type error to "fix" to `number`.
-- `Event` — a UFC fight card: `name`, `venue`, `date`, `status`, `fights: string[]`
-  (ids of its `Match` records). See `docs/context/vision.md` for why this is separate
-  from `Match`.
-- `UserLog` — a user's own diary entry for a match: `rating`, `review`, `tags`,
-  `live` (watched live flag), `ts` (timestamp).
-- `SeedReview` / `SEED_LOGS` (`lib/data.ts`) — seed fan reviews and a starter diary so
-  a fresh user/browser isn't looking at an empty app.
+  null` (string scores accommodate F1 positions/UFC results — not a bug to "fix").
+- `Event` — a UFC fight card bundling multiple `Match` ids. See vision.md.
+- `SeedReview` — seed fan reviews, still used as filler content alongside real
+  reviews (see below).
+- `User` — now has a real `id` (`auth.users.id`, also `ratings.user_id`), not just a
+  display name.
+- `Rating` — a real, DB-backed row from `public.ratings` (id, matchId, rating,
+  review, tags, watchedLive, createdAt, updatedAt). Replaces the old `UserLog` as the
+  saved shape; `UserLog` is still what `RateModal` collects before saving.
 
-## State management (`lib/app-store.tsx`)
+**Real games system** (`lib/queries/games.ts`): `GameSport` (`"nba"|"nfl"|"mlb"`,
+distinct from `SportSlug`), `GameSearchResult` (sport, id, title, date, status,
+scores, search_count, postseason, home/visitor team abbreviations).
 
-Single React Context (`AppProvider` / `useApp()`) holding: `user` (mock auth),
-`logs` (the signed-in user's diary, `Record<matchId, UserLog>`), and `toast` state.
-Persisted to `localStorage` under **versioned keys**: `ballup_logs_v2`,
-`ballup_web_user_v2`. The `_v2` suffix reflects a schema change from an earlier
-prototype (`_v1`) — bump the version suffix again if `UserLog`'s shape changes, so
-old browsers don't load incompatible cached state.
+## Real backend, by piece
 
-Toasts auto-dismiss after ~2.2s (`showToast`, `setTimeout(() => setToast(null),
-2200)`). Copy conventions: "Signed in as {name}," "Signed out — browsing as guest,"
-"Logged to your diary."
+- **Auth**: `lib/supabase/{client,server,middleware}.ts` (browser/server clients +
+  session refresh), `proxy.ts` (Next 16's renamed `middleware.ts`, wires
+  `updateSession` in on every request), `lib/actions/auth.ts` (sign in/up Server
+  Action — signup requires email confirmation, so it returns `checkEmail: true`
+  instead of a session).
+- **Ratings/reviews**: `public.ratings` table (RLS: public read, own-row write).
+  `lib/queries/ratings.ts` — `getUserRatingForMatch`/`getUserRatings` (the current
+  user's own), `getMatchReviews` (every user's review for a match, joined against
+  `profiles` for display names — real fan reviews, rendered above the mock
+  `SeedReview[]` list in `MatchDetailClient.tsx` rather than replacing it, so pages
+  stay populated while real content is sparse). `lib/actions/ratings.ts` —
+  `saveRatingAction`.
+- **Profiles**: `public.profiles` (id, display_name, RLS: public read, own-row
+  update), auto-created on signup via a `handle_new_user()` trigger on `auth.users`
+  insert (SQL, not in this repo — see the note at the bottom of this file). Edited at
+  `/settings` (`lib/actions/profile.ts`).
+- **Account deletion**: `/settings`'s danger zone calls a `delete_own_account()`
+  `security definer` RPC (same pattern as `increment_game_search_count` below) — no
+  service-role key anywhere in app code.
+- **Real games archive**: `scripts/backfill*.ts` populate `nba_games`/`nfl_games`/
+  `mlb_games`/`*_teams` from balldontlie.io. `lib/queries/games.ts`'s `searchGames()`
+  queries a `game_search` Postgres view (UNION of the three sports) — team-name and
+  abbreviation matching, and a `postseason`-phrase parser ("finals"/"nba finals"/etc,
+  all synonyms for "any postseason game" since the provider has no round names).
+  `lib/actions/games.ts`'s `incrementGameView` bumps `search_count` via RPC (not a
+  direct UPDATE — no UPDATE policy on the games tables on purpose), fired from
+  `GameViewTracker`'s client-mount effect, never from the page's own server render
+  (Next prefetches viewport-visible `<Link>`s, which would otherwise inflate counts).
+
+**`lib/app-store.tsx`** ties the client side together: signed-in `user` (from a
+server-side `getUser()` in `app/layout.tsx`, kept in sync with client auth events),
+`ratingsByMatch` (the current user's own ratings, fetched live from Supabase — not
+persisted locally), `hideScores` (spoiler-free mode, the one thing that *is*
+`localStorage`-persisted, since it's a pure per-device UI preference), and `toast`
+state.
+
+## Spoiler-free mode
+
+Fully shipped (previously partial — `design-system.md` used to note this as
+unfinished). `hideScores` lives in `lib/app-store.tsx`, toggled from an eye icon in
+`Nav.tsx` or from `/settings`. Threaded through every `MatchCard` grid
+(`HomeGrid`/`BrowseClient`), and additionally masks the match-detail scoreboard
+behind a tap-to-reveal button for `status === "final"` matches — the "who won" hint
+from dimming the losing side is suppressed too while masked, since that's itself a
+spoiler.
 
 ## Server/client split — follow this pattern for new routes
 
-Every route pairs a thin server `page.tsx` (fetches data via `getMatch(id)` /
-`getEvent(id)` from `lib/data.ts`, calls Next's `notFound()` if missing) with a
-`*Client.tsx` component that handles interactivity and `useApp()`/localStorage
-access:
+Every route pairs a thin server `page.tsx` (fetches data, calls `notFound()`/
+`redirect()` as needed) with a `*Client.tsx` component under `components/<area>/`
+that handles interactivity:
 
-- `app/matches/[id]/page.tsx` → `components/MatchDetailClient.tsx`
-- `app/events/[id]/page.tsx` → (event detail client component)
-- `app/browse/page.tsx` → `components/BrowseClient.tsx`
-- `app/diary/page.tsx` → `components/DiaryClient.tsx`
-- `app/login/page.tsx` → `components/LoginClient.tsx`
+- `app/matches/[id]/page.tsx` → `components/match/MatchDetailClient.tsx`
+- `app/events/[id]/page.tsx` → renders `HomeGrid` directly, no dedicated client
+- `app/browse/page.tsx` → `components/browse/BrowseClient.tsx`
+- `app/diary/page.tsx` → `components/diary/DiaryClient.tsx`
+- `app/login/page.tsx` → `components/auth/LoginClient.tsx`
+- `app/settings/page.tsx` → `components/settings/SettingsClient.tsx`
+- `app/search/page.tsx` → `components/search/SearchClient.tsx`
 
-Dynamic route params are typed as `Promise<{ id: string }>` and awaited (Next.js 16
-convention): `const { id } = await params;`. Keep this convention for any new dynamic
-route.
+Dynamic route params are typed as `Promise<{ id: string }>` and awaited:
+`const { id } = await params;`.
 
 ## Component conventions
 
-- `components/Icon.tsx` — single component with an if/else chain per icon name, each
-  branch returning a full inline `<svg>`. Follow this pattern for new icons rather
-  than introducing a `PATHS` lookup object — that approach was tried and abandoned in
-  the original build.
-- `components/Crest.tsx` — fallback chain for team/competitor art: logo
-  (`Logos.tsx`) → flag (`FlagBadge.tsx`) → colored monogram. See
-  `docs/context/design-system.md`.
-- Rating-distribution histogram on match detail pages is **not real vote data** — it's
-  a synthetic decay curve computed client-side from the single `avg` value:
-  `Math.max(2, Math.round((1 - Math.abs(n - avg)/6) * 100))` for buckets `[10, 8, 6,
-  4, 2]`. Don't be surprised it doesn't match any real tally — there isn't one yet.
+- `components/` is split into feature subfolders: `ui/` (shared primitives —
+  Button, Card, Label, Icon, Crest, EmptyState, etc.), `layout/` (Nav, HomeGrid,
+  PopularReviews, RegisterSW), `auth/`, `browse/`, `diary/`, `event/`, `games/`,
+  `match/`, `search/`, `settings/`.
+- `components/ui/Icon.tsx` — single component with an if/else chain per icon name,
+  each branch a full inline `<svg>`. Follow this pattern for new icons rather than a
+  `PATHS` lookup object.
+- `components/ui/Crest.tsx` — fallback chain for team/competitor art: logo
+  (`Logos.tsx`) → flag (`FlagBadge.tsx`) → colored monogram. For real (non-mock)
+  teams in search results, `components/search/TeamLogo.tsx` is a separate,
+  ESPN-CDN-backed component instead (see the games-search section above) — `Crest`
+  expects a mock `Side` object, `TeamLogo` a bare sport + abbreviation.
+- Rating-distribution histogram on match detail pages is **not real vote data** —
+  still a synthetic decay curve from the mock `avg` value (`RatingValue.tsx`'s
+  `ratingColor` for the OKLCH gradient is real and shipped, though — see
+  design-system.md).
+
+## PWA / pre-launch hardening
+
+- `app/manifest.ts` + `app/icon.tsx`/`apple-icon.tsx`/`maskable-icon/route.tsx` —
+  installable, `display: "standalone"`.
+- `public/sw.js` — network-first-with-cache-fallback service worker, registered from
+  `components/layout/RegisterSW.tsx` (previously written but never registered).
+- `app/opengraph-image.tsx` + `metadata.openGraph`/`twitter` in `app/layout.tsx` —
+  real social link previews.
+- `next.config.ts`'s `headers()` sets `X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`, `Permissions-Policy`. Deliberately no CSP — the app's
+  inline-`style` styling approach would need `style-src 'unsafe-inline'` anyway, and
+  there's no way to test a stricter one live in this environment without real risk of
+  breaking pages.
 
 ## Known gotcha: `next/font/google` blank-page bug
 
-`next/font/google`'s `axes` option is **only valid when `weight: "variable"`**.
-Setting `axes: ["opsz"]` alongside fixed weights (e.g. `weight: ["400","600","700",
-"800"]`) causes a silent module-resolution failure — the entire app renders blank,
-**no console error, no DOM output**. If the app ever goes blank with no visible
-error, check the font config in `app/layout.tsx` first.
+`axes` is only valid alongside `weight: "variable"`. Pairing it with fixed weights
+causes a silent failure — the whole app renders blank, no console error. Check
+`app/layout.tsx`'s font config first if the app ever goes blank with no visible
+error.
 
 ## Deleted legacy files — do not resurrect or reference
 
-These were removed during the rewrite to the current `Match`/`Event` data model and
-`app-store.tsx`. If you see a stale reference to them (e.g. in an old note, comment,
-or search result), it's leftover from before the rewrite, not a file to recreate:
+Removed during the original mock-data rewrite: `lib/mock-games.ts`, `lib/leagues.ts`,
+`lib/reviews-store.tsx`, `lib/use-game-reviews.ts`, `components/GameCard.tsx`,
+`app/leagues/[slug]/page.tsx`. Note `app/games/[id]/page.tsx` specifically was later
+*re-added* for real reasons — `app/games/[sport]/[id]/page.tsx` is the real
+historical-game detail page (see the games-search section above), not a resurrection
+of deleted mock code; don't confuse the two.
 
-`lib/mock-games.ts`, `lib/leagues.ts`, `lib/reviews-store.tsx`,
-`lib/use-game-reviews.ts`, `components/GameCard.tsx`, `app/games/[id]/page.tsx`,
-`app/leagues/[slug]/page.tsx`.
+## Schema not tracked in this repo
 
-If the `.next` build cache ever shows phantom type errors referencing deleted routes
-(e.g. `.next/dev/types/validator.ts`), wipe `.next` (`Remove-Item -Recurse -Force
-.next` on Windows) rather than debugging a route that no longer exists.
+There's no `supabase/migrations/` — the live Postgres schema (RLS policies, the
+`game_search` view, the `handle_new_user`/`delete_own_account`/
+`increment_game_search_count` functions, `review_likes`/`reports` tables) lives only
+in the Supabase project itself. Any change to it is applied by hand via the SQL
+editor — check the most recent Obsidian progress-log entry for whether a given piece
+of SQL has actually been run yet before assuming a feature that depends on it is
+live.

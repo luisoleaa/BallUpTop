@@ -38,33 +38,31 @@ for new UI rather than defaulting everything to the body font.
   sheet — the original mockup used a mobile bottom sheet; the web port deliberately
   adapted this to a modal rather than porting it literally. Keep that adaptation in
   mind if referencing the original mockup for other mobile-first patterns.
-- Team/competitor art has a fallback chain, implemented in `components/Crest.tsx`:
-  custom logo SVG (`components/Logos.tsx`) → national flag SVG (`components/
-  FlagBadge.tsx`) → colored monogram (abbreviation initials on a colored circle).
-  Every side should always render *something* — don't add a "no logo" empty state.
+- Team/competitor art has a fallback chain, implemented in `components/ui/Crest.tsx`:
+  custom logo SVG (`components/ui/Logos.tsx`) → national flag SVG
+  (`components/ui/FlagBadge.tsx`) → colored monogram (abbreviation initials on a
+  colored circle). Every side should always render *something* — don't add a "no
+  logo" empty state. This is only for the mock `Side` model — real-team logos on
+  `/search` results use a different component, `components/search/TeamLogo.tsx`
+  (hotlinked from ESPN's CDN, falling back to a colored monogram of its own).
 
-## Ideas from the original mockup that did **not** ship — don't assume they exist
+## Shipped: OKLCH rating-color gradient
 
-These were explored in the pre-build design mockup but are **not** in the current
-codebase. Treat them as backlog ideas (see `docs/context/roadmap.md`), not existing
-behavior to preserve or features someone forgot to remove:
+`components/ui/RatingValue.tsx`'s `ratingColor()` computes
+`oklch(0.74 0.17 ${28 + t*117})`, a red→green interpolation by rating value — used
+for the numeric rating display and the match-detail rating-slider fill. This was
+explored in the original mockup and not shipped for a while; it's live now. Don't
+reintroduce a fixed `--star`/`--accent` rating color as a "fix" — the gradient is
+intentional.
 
-- **OKLCH rating-color gradient** — mockup computed rating color dynamically as
-  `oklch(0.74 0.17 ${28 + t*117})` (red→green interpolation by rating value). Current
-  `globals.css` has no `oklch(` — ratings use the fixed `--star`/`--accent` vars
-  instead. If asked to "make rating colors gradient by score," this is the reference
-  formula to reintroduce.
-- **`ratingMode` alt display** — mockup threaded a `ratingMode` prop through some
-  mobile components suggesting a stars-vs-numeric toggle was explored. Never adopted;
-  `RatingValue.tsx` just renders numeric `/10`.
+Still not shipped: a `ratingMode` stars-vs-numeric toggle the original mockup
+explored on some mobile components. `RatingValue.tsx` only renders numeric `/10`.
 
-## Partially shipped: `hideScores` (spoiler-free mode)
+## Shipped: `hideScores` (spoiler-free mode)
 
-`components/MatchCard.tsx` **does** accept and honor a `hideScores?: boolean` prop
-(when true, the score is hidden). This much shipped. What's *missing* is any caller
-that actually passes `hideScores`, and any user-facing toggle/state to control it —
-there's no `hideScores` in `lib/app-store.tsx` and no UI switch anywhere. So the
-plumbing exists at the component level but the feature isn't wired up or reachable by
-a user yet. If asked to finish "spoiler-free mode," this is the entry point — add
-the toggle state (likely in `app-store.tsx`, persisted like other user prefs) and
-thread it through the pages that render `MatchCard`.
+Fully wired now (previously just a component-level prop with nothing calling it).
+`lib/app-store.tsx` holds the persisted `hideScores` state; `Nav.tsx` has an eye-icon
+toggle, `/settings` has a labeled one. Every `MatchCard` grid
+(`HomeGrid`/`BrowseClient`) respects it, and `MatchDetailClient.tsx`'s scoreboard
+masks the score behind a "Reveal score" button for finished matches — including
+suppressing the winner-dimming visual hint, which would otherwise leak the result.

@@ -3,24 +3,53 @@
 Nothing here is urgent or blocking — these are the known open threads to pick up
 when asked to extend the app, not a to-do list to work through unprompted.
 
-## From the README
+## Done (this file used to list these as open — they're not anymore)
 
-- **Swap mock game data for a real live-scores provider** (e.g. API-Sports,
-  SportsDataIO) — replace `lib/data.ts`'s static `MATCHES`/`SPORTS`/`EVENTS` without
-  touching UI components, since pages already consume it through `getMatch`/
-  `getEvent`-style accessors.
-- **Move ratings/reviews off `localStorage` to a real backend with accounts** — so
-  diaries and fan reviews are shared across users/devices instead of per-browser.
-  This is the bigger of the two — auth is currently fully mock (see
-  `docs/context/architecture.md`), so this implies real auth too.
+- Real Supabase Auth (was mock/local).
+- Real ratings/reviews backend (`public.ratings`, was `localStorage`).
+- Real fan reviews merged into match detail pages, alongside the mock seed reviews.
+- A real NBA/NFL/MLB historical game archive + search (`/search`), separate from the
+  mock `Match`/`Event` system that still powers browse/home/matches/events.
+- Spoiler-free mode ("hide scores"), fully wired.
+- OKLCH rating-color gradient, fully wired.
+- PWA activated (service worker registered, maskable icon), social preview image,
+  baseline security headers.
+- A settings page (display name, spoiler toggle, sign out, account deletion).
 
-## Unshipped ideas from the original design mockup
+## Open: schema changes waiting on a manual SQL step
 
-See `docs/context/design-system.md` for full detail on each:
+These have application code written and ready, but need one SQL script run against
+the live Supabase project first (check the Obsidian progress log for whether it's
+been run yet):
+- `postseason` column + `game_search` view rewrite, for postseason-phrase search
+  ("finals"/"nba finals") and real team logos in search results.
+- `handle_new_user()` trigger, so every signup gets a `profiles` row automatically.
+- `review_likes` table — real likes on real fan reviews (mock `SeedReview.likes`
+  stays static for the still-mock seed content).
+- `reports` table — lets a signed-in user report a review (App/Play Store
+  UGC-moderation requirement).
+- `delete_own_account()` RPC — `/settings`'s delete-account button already calls it.
 
-- **Finish spoiler-free / "hide scores" mode** — `MatchCard.tsx` already supports a
-  `hideScores` prop; what's missing is a persisted toggle (likely in
-  `lib/app-store.tsx`) and wiring it through the pages that render match cards.
-- **OKLCH rating-color gradient** — dynamically color a rating value along a
-  red→green hue interpolation (`oklch(0.74 0.17 ${28 + t*117})`) instead of the
-  current fixed accent color, if a more expressive rating display is wanted.
+## Open: unify the mock and real game systems
+
+- **Swap mock game data for a real live-scores provider**, at least for the sports
+  that have one (NBA/NFL/MLB/EPL via balldontlie or similar) — the real games/search
+  system is a separate, parallel track today, not yet used to back
+  `/browse`/`/matches`/home. Soccer/tennis/F1/UFC/NHL/cricket have no real data source
+  and stay mock indefinitely.
+- Decide whether `ratings`/reviews should eventually key against real game ids
+  instead of (or alongside) mock `Match.id`s, if/when the above happens.
+
+## Open: mobile app stores
+
+See the mobile-deploy roadmap in the Obsidian project-context doc (linked from
+`CLAUDE.md`) — chosen path is Android first via PWA + Trusted Web Activity, iOS later
+via a React Native/Expo rewrite. Not started; needs real hosting + developer
+accounts.
+
+## Open: other ideas worth considering
+
+- A `ratingMode` stars-vs-numeric toggle (see design-system.md) — never adopted.
+- A full CSP — skipped for now, see architecture.md's PWA/hardening section.
+- Real test coverage beyond the current unit tests on pure helpers — no
+  component/integration tests yet (no testing-library installed).

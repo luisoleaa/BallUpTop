@@ -55,5 +55,14 @@ match as a guest redirects to `/login?reason=rate` and resumes the rate flow rig
 after sign-in. Guest messaging: *"Browse ratings freely — sign in when you're ready to
 log your own."*
 
-Auth is currently **entirely mock/local** (see `docs/context/architecture.md`) — any
-email/password combination "works." This is expected, not a bug to fix reflexively.
+Auth is real Supabase Auth (email/password + email confirmation) — see
+`docs/context/architecture.md`. It was mock/local earlier in the project's history;
+if you see an old note describing it that way, it's stale.
+
+## Spoiler-free mode
+
+A "taste and memory" app for people who don't always watch live has an obvious
+tension: browsing risks seeing the result before you've watched. `hideScores`
+(toggle in `Nav.tsx` or `/settings`) masks scores on cards and behind a tap-to-reveal
+on match detail pages — on-theme, not a bolted-on feature. See
+`docs/context/architecture.md` for how it's wired.
