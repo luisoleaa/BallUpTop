@@ -6,6 +6,7 @@ import { AppProvider } from "@/lib/app-store";
 import { getUser } from "@/lib/supabase/server";
 import { toUser } from "@/lib/to-user";
 import { Nav } from "@/components/layout/Nav";
+import { RegisterSW } from "@/components/layout/RegisterSW";
 import { Toast } from "@/components/ui/Toast";
 import "./globals.css";
 
@@ -22,9 +23,24 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "600", "700"],
 });
 
+// Falls back to localhost until a real domain is set at deploy time.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "Ball Up Top",
   description: "Rate every match you watch.",
+  openGraph: {
+    title: "Ball Up Top",
+    description: "Rate every match you watch.",
+    siteName: "Ball Up Top",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ball Up Top",
+    description: "Rate every match you watch.",
+  },
 };
 
 export const viewport: Viewport = {
@@ -44,6 +60,7 @@ export default async function RootLayout({
     >
       <body style={{ background: "var(--bg)", color: "var(--text)" }}>
         <AppProvider initialUser={toUser(user)}>
+          <RegisterSW />
           <Nav />
           <Toast />
           {children}
