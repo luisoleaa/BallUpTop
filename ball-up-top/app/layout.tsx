@@ -28,7 +28,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Ball Up Top",
+  title: { default: "Ball Up Top", template: "%s — Ball Up Top" },
   description: "Rate every match you watch.",
   openGraph: {
     title: "Ball Up Top",

@@ -1,8 +1,16 @@
 // Event detail page: a UFC fight card, listing its fights as MatchCards.
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEvent, MATCHES, SPORTS } from "@/lib/data";
 import { HomeGrid } from "@/components/layout/HomeGrid";
 import { BackLink } from "@/components/ui/BackLink";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const event = getEvent(id);
+  if (!event) return {};
+  return { title: event.name, description: `${event.venue} — Ball Up Top` };
+}
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -1,8 +1,21 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getMatch, REVIEWS } from "@/lib/data";
+import { getMatch, REVIEWS, SPORTS } from "@/lib/data";
 import { getUser } from "@/lib/supabase/server";
 import { getMatchReviews, getUserRatingForMatch } from "@/lib/queries/ratings";
 import { MatchDetailClient } from "@/components/match/MatchDetailClient";
+
+// No score in the description -- link previews are more "public" than the
+// app itself (can show up in a chat before the viewer chooses to look).
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const match = getMatch(id);
+  if (!match) return {};
+  return {
+    title: `${match.a.name} vs ${match.b.name}`,
+    description: `Rate and review this ${SPORTS[match.sport].name} match on Ball Up Top.`,
+  };
+}
 
 export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

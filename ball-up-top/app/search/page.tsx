@@ -1,10 +1,20 @@
 // Server page for /search: does the initial query itself (real SSR render,
 // no client-side loading flash on first load), then hands off to
 // SearchClient for debounced re-search as the user types/filters.
+import type { Metadata } from "next";
 import { searchGames, type GameSport } from "@/lib/queries/games";
 import { SearchClient } from "@/components/search/SearchClient";
 
 const VALID_SPORTS: GameSport[] = ["nba", "nfl", "mlb"];
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}): Promise<Metadata> {
+  const { q } = await searchParams;
+  return { title: q ? `"${q}" — Search` : "Search" };
+}
 
 export default async function SearchPage({
   searchParams,

@@ -1,4 +1,5 @@
 // Minimal detail page for a real historical game found via /search.
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getGame, type GameSport } from "@/lib/queries/games";
 import { BackLink } from "@/components/ui/BackLink";
@@ -7,6 +8,19 @@ import { SportChip } from "@/components/ui/SportChip";
 import { GameViewTracker } from "@/components/games/GameViewTracker";
 
 const VALID_SPORTS: GameSport[] = ["nba", "nfl", "mlb"];
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ sport: string; id: string }>;
+}): Promise<Metadata> {
+  const { sport: sportParam, id: idParam } = await params;
+  if (!VALID_SPORTS.includes(sportParam as GameSport)) return {};
+  const id = Number(idParam);
+  if (!Number.isInteger(id)) return {};
+  const game = await getGame(sportParam as GameSport, id);
+  return game ? { title: game.title } : {};
+}
 
 export default async function GamePage({
   params,
