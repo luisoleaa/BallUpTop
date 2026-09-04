@@ -28,17 +28,21 @@ interface Props {
 }
 
 export function MatchDetailClient({ match, reviews, dist, initialRating }: Props) {
-  const { user, showToast, refreshRatings } = useApp();
+  const { user, showToast, refreshRatings, hideScores } = useApp();
   const router = useRouter();
   const [rating, setRating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const userRating = initialRating;
   const existingLog = userRating
     ? { rating: userRating.rating, review: userRating.review ?? "", tags: userRating.tags, live: userRating.watchedLive }
     : undefined;
 
+  // Dimming the loser's side is itself a spoiler, so it's suppressed along
+  // with the score while masked.
+  const scoreMasked = hideScores && match.status === "final" && !revealed;
   const winner =
-    match.status === "final" && match.a.score != null && typeof match.a.score === "number"
+    !scoreMasked && match.status === "final" && match.a.score != null && typeof match.a.score === "number"
       ? match.a.score > (match.b.score as number) ? "a" : (match.b.score as number) > match.a.score ? "b" : null
       : null;
 
@@ -82,9 +86,23 @@ export function MatchDetailClient({ match, reviews, dist, initialRating }: Props
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, minWidth: 120 }}>
                 {match.a.score != null ? (
-                  <div style={{ fontFamily: "var(--font-mono, monospace)", fontWeight: 800, fontSize: 46, letterSpacing: -1, color: "var(--text)" }}>
-                    {match.a.score}<span style={{ color: "var(--text-faint)" }}>·</span>{match.b.score}
-                  </div>
+                  scoreMasked ? (
+                    <button
+                      onClick={() => setRevealed(true)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6, border: "1px dashed var(--border)",
+                        background: "transparent", borderRadius: 99, padding: "6px 12px", cursor: "pointer",
+                        color: "var(--text-muted)", fontSize: 12.5, fontWeight: 700, fontFamily: "inherit",
+                      }}
+                    >
+                      <Icon name="eyeOff" size={14} stroke="var(--text-muted)" />
+                      Reveal score
+                    </button>
+                  ) : (
+                    <div style={{ fontFamily: "var(--font-mono, monospace)", fontWeight: 800, fontSize: 46, letterSpacing: -1, color: "var(--text)" }}>
+                      {match.a.score}<span style={{ color: "var(--text-faint)" }}>·</span>{match.b.score}
+                    </div>
+                  )
                 ) : (
                   <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 17, color: "var(--text-faint)", fontWeight: 700 }}>VS</div>
                 )}

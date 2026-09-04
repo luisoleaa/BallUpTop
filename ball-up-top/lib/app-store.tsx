@@ -16,6 +16,8 @@ import { toRating, type RatingRow } from "./ratings-row";
 import { toUser } from "./to-user";
 import type { Rating, User } from "./types";
 
+const HIDE_SCORES_KEY = "ballup_hide_scores_v1";
+
 interface AppContextValue {
   user: User | null;
   signOut: () => Promise<void>;
@@ -23,6 +25,8 @@ interface AppContextValue {
   refreshRatings: () => Promise<void>;
   toast: string | null;
   showToast: (msg: string) => void;
+  hideScores: boolean;
+  toggleHideScores: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -37,9 +41,26 @@ export function AppProvider({
   const [user, setUser] = useState<User | null>(initialUser);
   const [ratingsByMatch, setRatingsByMatch] = useState<Record<string, Rating>>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [hideScores, setHideScores] = useState(false);
+
+  // Reads the persisted preference after mount, not during SSR (localStorage
+  // isn't available server-side), so the first client render matches SSR.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read from a browser-only store, can't run during SSR
+    setHideScores(localStorage.getItem(HIDE_SCORES_KEY) === "1");
+  }, []);
+
+  const toggleHideScores = useCallback(() => {
+    setHideScores((prev) => {
+      const next = !prev;
+      localStorage.setItem(HIDE_SCORES_KEY, next ? "1" : "0");
+      return next;
+    });
+  }, []);
 
   // Re-sync whenever the server-provided user changes across a navigation.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing a server-provided prop into local state
     setUser(initialUser);
   }, [initialUser]);
 
@@ -65,6 +86,7 @@ export function AppProvider({
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetches or clears the ratings cache when the user changes
     if (user) loadRatings(user.id);
     else setRatingsByMatch({});
   }, [user, loadRatings]);
@@ -84,7 +106,7 @@ export function AppProvider({
   }, []);
 
   return (
-    <AppContext.Provider value={{ user, signOut, ratingsByMatch, refreshRatings, toast, showToast }}>
+    <AppContext.Provider value={{ user, signOut, ratingsByMatch, refreshRatings, toast, showToast, hideScores, toggleHideScores }}>
       {children}
     </AppContext.Provider>
   );

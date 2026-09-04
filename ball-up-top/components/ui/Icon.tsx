@@ -3,7 +3,8 @@
 // lookup object -- that approach was tried and abandoned in the original build.
 export type IconName =
   | "home" | "search" | "activity" | "chevL" | "chevR" | "close"
-  | "check" | "plus" | "bell" | "pen" | "user" | "apple" | "flame";
+  | "check" | "plus" | "bell" | "pen" | "user" | "apple" | "flame"
+  | "eye" | "eyeOff" | "flag" | "trash";
 
 interface IconProps {
   name: IconName;
@@ -38,5 +39,14 @@ export function Icon({ name, size = 22, stroke = "currentColor", fill = "none", 
       <path d="M12.12 15.12A3 3 0 017 13c.6.3 1.5.5 2.5.5 0-1 .5-4 1.25-4.5.5 1 .79 1.29 1.37 1.88A3 3 0 0113 15a3 3 0 01-.88.12z" />
     </svg>
   );
+  if (name === "eye") return <svg {...common}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>;
+  if (name === "eyeOff") return (
+    <svg {...common}>
+      <path d="M3 3l18 18M10.6 5.2A10.9 10.9 0 0112 5c6.5 0 10 7 10 7a15.5 15.5 0 01-3.4 4.3M6.6 6.6C4 8.3 2 12 2 12s3.5 7 10 7a10 10 0 004.4-1" />
+      <path d="M9.9 9.9a3 3 0 004.2 4.2" />
+    </svg>
+  );
+  if (name === "flag") return <svg {...common}><path d="M5 3v18M5 4h13l-3 4 3 4H5" /></svg>;
+  if (name === "trash") return <svg {...common}><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></svg>;
   return null;
 }

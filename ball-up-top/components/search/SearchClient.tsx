@@ -3,7 +3,7 @@
 // Search over the real historical game archive. Debounced text input + sport
 // filter + recent/popular sort, synced to the URL so a search is bookmarkable.
 import { useEffect, useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Icon } from "../ui/Icon";
 import { TagPill } from "../ui/TagPill";
 import { EmptyState } from "../ui/EmptyState";
@@ -27,7 +27,6 @@ export function SearchClient({
   initialSort: "recent" | "popular";
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [q, setQ] = useState(initialQuery);
   const [sport, setSport] = useState<GameSport | "all">(initialSport);
   const [sort, setSort] = useState<"recent" | "popular">(initialSort);
@@ -97,7 +96,7 @@ export function SearchClient({
 
       {games.length === 0 && !isPending ? (
         <EmptyState
-          image="/Wilt-100-ASCII.png" imageWidth={1029} imageHeight={1548}
+          image="/Wilt-100-ASCII.png" imageWidth={890} imageHeight={1116}
           alt="ASCII-art portrait of Wilt Chamberlain" opacity={0.3}
           title="No games found"
           subtitle={q ? `Nothing matches "${q}"` : undefined}

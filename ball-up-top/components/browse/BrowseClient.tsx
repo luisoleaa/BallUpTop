@@ -13,7 +13,7 @@ import { TagPill } from "../ui/TagPill";
 export function BrowseClient() {
   const [q, setQ] = useState("");
   const [sport, setSport] = useState<"all" | SportSlug>("all");
-  const { ratingsByMatch } = useApp();
+  const { ratingsByMatch, hideScores } = useApp();
 
   const filtered = MATCHES.filter((m) => {
     if (sport !== "all" && m.sport !== sport) return false;
@@ -70,7 +70,7 @@ export function BrowseClient() {
         />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginTop: 16 }}>
-          {filtered.map((m) => <MatchCard key={m.id} match={m} userLog={ratingsByMatch[m.id]} />)}
+          {filtered.map((m) => <MatchCard key={m.id} match={m} userLog={ratingsByMatch[m.id]} hideScores={hideScores} />)}
         </div>
       )}
     </main>

@@ -5,12 +5,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/lib/app-store";
 import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 
 export function Nav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, signOut, showToast } = useApp();
+  const { user, signOut, showToast, hideScores, toggleHideScores } = useApp();
 
   const links: [string, string][] = [
     ["/", "Home"],
@@ -63,9 +64,21 @@ export function Nav() {
           })}
         </div>
 
+        <button
+          onClick={toggleHideScores}
+          title={hideScores ? "Show scores" : "Hide scores (spoiler-free)"}
+          style={{
+            border: "1px solid var(--border)", background: hideScores ? "var(--surface-2)" : "transparent",
+            width: 34, height: 34, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", flexShrink: 0,
+          }}
+        >
+          <Icon name={hideScores ? "eyeOff" : "eye"} size={17} stroke={hideScores ? "var(--accent-strong)" : "var(--text-muted)"} />
+        </button>
+
         {user ? (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <Link href="/settings" style={{ display: "flex", alignItems: "center", gap: 9, textDecoration: "none" }}>
               <div style={{
                 width: 32, height: 32, borderRadius: 99, background: "var(--accent)",
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -74,7 +87,7 @@ export function Nav() {
                 {user.name.slice(0, 2).toUpperCase()}
               </div>
               <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{user.name}</span>
-            </div>
+            </Link>
             <Button
               variant="secondary" size="sm" pill onClick={handleSignOut}
               style={{ background: "transparent", color: "var(--text-muted)" }}
