@@ -142,7 +142,7 @@ export async function getOnThisDay(limit = 6): Promise<GameSearchResult[]> {
 
   const now = new Date();
   const [month, day, currentYear] = [now.getUTCMonth(), now.getUTCDate(), now.getUTCFullYear()];
-  const YEARS_TO_CHECK = 20;
+  const YEARS_TO_CHECK = 12;
 
   const perYear = await Promise.all(
     Array.from({ length: YEARS_TO_CHECK }, (_, i) => currentYear - 1 - i).map(async (year) => {
