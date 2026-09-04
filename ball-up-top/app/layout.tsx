@@ -5,6 +5,7 @@ import { Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import { AppProvider } from "@/lib/app-store";
 import { getUser } from "@/lib/supabase/server";
 import { toUser } from "@/lib/to-user";
+import { Footer } from "@/components/layout/Footer";
 import { Nav } from "@/components/layout/Nav";
 import { RegisterSW } from "@/components/layout/RegisterSW";
 import { Toast } from "@/components/ui/Toast";
@@ -64,6 +65,7 @@ export default async function RootLayout({
           <Nav />
           <Toast />
           {children}
+          <Footer />
         </AppProvider>
       </body>
     </html>
