@@ -1,17 +1,21 @@
-// Home page: hero, then Live now / Popular this week / Fight cards / Upcoming
-// sections, pulled from the mock MATCHES/EVENTS data.
+// Home page: hero, then Live now / Popular this week / On this day / Fight
+// cards / Upcoming sections. Live/Popular/Fight cards/Upcoming are the mock
+// MATCHES/EVENTS data; On this day pulls from the real historical archive.
 import { EVENTS, getTopReviews, MATCHES } from "@/lib/data";
+import { getOnThisDay } from "@/lib/queries/games";
 import { EventCard } from "@/components/event/EventCard";
+import { GameResultCard } from "@/components/search/GameResultCard";
 import { HomeGrid } from "@/components/layout/HomeGrid";
 import { PopularReviews } from "@/components/layout/PopularReviews";
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Label";
 
-export default function HomePage() {
+export default async function HomePage() {
   const live = MATCHES.filter((m) => m.status === "live");
   const popular = MATCHES.filter((m) => m.heat && m.status === "final");
   const upcoming = MATCHES.filter((m) => m.status === "upcoming" && !m.event);
   const topReviews = getTopReviews(4);
+  const onThisDay = await getOnThisDay(6);
 
   return (
     <main style={{ maxWidth: 1160, margin: "0 auto", padding: "0 28px 80px" }}>
@@ -45,6 +49,16 @@ export default function HomePage() {
       <Section title="Popular reviews">
         <PopularReviews reviews={topReviews} />
       </Section>
+
+      {onThisDay.length > 0 && (
+        <Section title="On this day in sports history" right={
+          <Button href="/search" variant="ghost" size="sm">Search the archive →</Button>
+        }>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+            {onThisDay.map((g) => <GameResultCard key={`${g.sport}-${g.id}`} game={g} />)}
+          </div>
+        </Section>
+      )}
 
       <Section title="Fight cards">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 16 }}>

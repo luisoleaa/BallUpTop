@@ -130,6 +130,42 @@ export async function searchGames({
   return { games, total: count ?? 0 };
 }
 
+// Real completed games from today's calendar date across past years -- "On
+// this day in sports history" on the home page. game_search has no
+// day-of-year index to filter on directly, so this checks a handful of
+// individual years in parallel (one narrow indexed range query each) rather
+// than scanning the full ~80-year archive in one query.
+export async function getOnThisDay(limit = 6): Promise<GameSearchResult[]> {
+  const supabase = await createClient();
+  const extended = await hasExtendedColumns(supabase);
+  const columns = extended ? EXTENDED_COLUMNS : BASE_COLUMNS;
+
+  const now = new Date();
+  const [month, day, currentYear] = [now.getUTCMonth(), now.getUTCDate(), now.getUTCFullYear()];
+  const YEARS_TO_CHECK = 20;
+
+  const perYear = await Promise.all(
+    Array.from({ length: YEARS_TO_CHECK }, (_, i) => currentYear - 1 - i).map(async (year) => {
+      const from = new Date(Date.UTC(year, month, day));
+      const to = new Date(Date.UTC(year, month, day + 1));
+      // "finished" is sport-agnostic via score presence -- the status string
+      // itself varies by sport ("Final" for NBA/NFL, "STATUS_FINAL" for MLB).
+      const { data } = await supabase
+        .from("game_search")
+        .select(columns)
+        .not("home_team_score", "is", null)
+        .gte("date", from.toISOString())
+        .lt("date", to.toISOString())
+        .order("search_count", { ascending: false })
+        .limit(1);
+      return (data as unknown as Record<string, unknown>[] | null)?.[0] ?? null;
+    })
+  );
+
+  const rows = perYear.filter((r): r is Record<string, unknown> => r != null).slice(0, limit);
+  return rows.map((g) => ({ postseason: null, home_team_abbr: "", visitor_team_abbr: "", ...g })) as GameSearchResult[];
+}
+
 const GAME_TABLES: Record<GameSport, string> = {
   nba: "nba_games",
   nfl: "nfl_games",
