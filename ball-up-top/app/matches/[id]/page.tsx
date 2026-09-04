@@ -23,7 +23,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
   const user = await getUser();
   const initialRating = user ? await getUserRatingForMatch(user.id, id) : null;
-  const realReviews = await getMatchReviews(id);
+  const realReviews = await getMatchReviews(id, user?.id);
 
   return (
     <MatchDetailClient

@@ -17,6 +17,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { Icon } from "../ui/Icon";
 import { Label } from "../ui/Label";
 import { RateModal } from "./RateModal";
+import { ReviewActions } from "./ReviewActions";
 import { RatingValue, ratingColor } from "../ui/RatingValue";
 import { SportChip } from "../ui/SportChip";
 import { StatusPill } from "../ui/StatusPill";
@@ -40,6 +41,10 @@ interface DisplayReview {
   tags: string[];
   text: string;
   time: string;
+  // Only set for real reviews -- mock seed content has no rating row to act against.
+  ratingId?: string;
+  likeCount?: number;
+  likedByMe?: boolean;
 }
 
 export function MatchDetailClient({ match, reviews, realReviews, dist, initialRating }: Props) {
@@ -65,6 +70,7 @@ export function MatchDetailClient({ match, reviews, realReviews, dist, initialRa
     ...realReviews.map((r): DisplayReview => ({
       key: r.id, name: r.userName, rating: r.rating, live: r.watchedLive,
       tags: r.tags, text: r.review, time: timeAgo(r.createdAt),
+      ratingId: r.id, likeCount: r.likeCount, likedByMe: r.likedByMe,
     })),
     ...reviews.map((r, i): DisplayReview => ({
       key: `seed-${i}`, name: r.user, rating: r.rating, live: r.live,
@@ -174,6 +180,13 @@ export function MatchDetailClient({ match, reviews, realReviews, dist, initialRa
                   </div>
                 )}
                 <p style={{ fontSize: 15, margin: "10px 0 0", lineHeight: 1.55, color: "var(--text)" }}>{r.text}</p>
+                {r.ratingId && (
+                  <ReviewActions
+                    ratingId={r.ratingId}
+                    initialLikeCount={r.likeCount ?? 0}
+                    initialLikedByMe={r.likedByMe ?? false}
+                  />
+                )}
               </div>
             ))}
           </div>

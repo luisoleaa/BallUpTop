@@ -35,13 +35,18 @@ export interface MatchReview {
   tags: string[];
   watchedLive: boolean;
   createdAt: string;
+  likeCount: number;
+  likedByMe: boolean;
 }
 
 // Real fan reviews for a match, newest first. ratings.user_id has no direct
 // FK to profiles (both point at auth.users), so profiles are fetched
 // separately and merged in app code rather than relying on a PostgREST
-// embed. Falls back to "Fan" for a user with no profile row.
-export async function getMatchReviews(matchId: string): Promise<MatchReview[]> {
+// embed. Falls back to "Fan" for a user with no profile row. Likes are
+// looked up best-effort -- review_likes may not exist yet (pending SQL
+// migration), in which case every review just shows 0 likes rather than
+// erroring the whole page.
+export async function getMatchReviews(matchId: string, currentUserId?: string): Promise<MatchReview[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("ratings")
@@ -58,6 +63,21 @@ export async function getMatchReviews(matchId: string): Promise<MatchReview[]> {
   const { data: profiles } = await supabase.from("profiles").select("id,display_name").in("id", userIds);
   const nameById = new Map((profiles ?? []).map((p) => [p.id as string, p.display_name as string]));
 
+  const ratingIds = rows.map((r) => r.id as string);
+  const likeCountById = new Map<string, number>();
+  const likedByMeSet = new Set<string>();
+  const { data: likes, error: likesError } = await supabase
+    .from("review_likes")
+    .select("rating_id,user_id")
+    .in("rating_id", ratingIds);
+  if (!likesError) {
+    for (const l of likes ?? []) {
+      const ratingId = l.rating_id as string;
+      likeCountById.set(ratingId, (likeCountById.get(ratingId) ?? 0) + 1);
+      if (currentUserId && l.user_id === currentUserId) likedByMeSet.add(ratingId);
+    }
+  }
+
   return rows.map((r) => ({
     id: r.id as string,
     userName: nameById.get(r.user_id as string) ?? "Fan",
@@ -66,5 +86,7 @@ export async function getMatchReviews(matchId: string): Promise<MatchReview[]> {
     tags: (r.tags as string[]) ?? [],
     watchedLive: r.watched_live as boolean,
     createdAt: r.created_at as string,
+    likeCount: likeCountById.get(r.id as string) ?? 0,
+    likedByMe: likedByMeSet.has(r.id as string),
   }));
 }
