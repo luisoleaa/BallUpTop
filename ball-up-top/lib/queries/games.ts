@@ -19,7 +19,7 @@ export interface GameSearchResult {
 }
 
 // Escapes ILIKE metacharacters so a search like "a_b" isn't read as a wildcard.
-function escapeLike(value: string) {
+export function escapeLike(value: string) {
   return value.replace(/[\\%_]/g, "\\$&");
 }
 
@@ -34,7 +34,7 @@ const GAME_TEAMS_TABLES: Record<GameSport, string> = {
 const PLAYOFF_WORDS = new Set(["finals", "final", "semifinals", "semifinal", "playoffs", "playoff", "postseason"]);
 const SPORT_WORDS: Record<string, GameSport> = { nba: "nba", nfl: "nfl", mlb: "mlb" };
 
-function parsePlayoffPhrase(term: string): { isPlayoffPhrase: boolean; sport?: GameSport } {
+export function parsePlayoffPhrase(term: string): { isPlayoffPhrase: boolean; sport?: GameSport } {
   const words = term.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.some(w => PLAYOFF_WORDS.has(w))) return { isPlayoffPhrase: false };
   const sportWord = words.find(w => w in SPORT_WORDS);
