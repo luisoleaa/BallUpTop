@@ -61,6 +61,22 @@ async function resolveTeamNameMatches(term: string, sport: GameSport | "all"): P
   return names;
 }
 
+// Whether game_search has the postseason/team-abbr columns from the pending
+// SQL migration -- checked once per server instance and cached, since the
+// migration may not have been applied yet and this can't 500 the whole
+// search page in the meantime.
+let extendedColumnsAvailable: boolean | null = null;
+
+async function hasExtendedColumns(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
+  if (extendedColumnsAvailable != null) return extendedColumnsAvailable;
+  const { error } = await supabase.from("game_search").select("postseason").limit(1);
+  extendedColumnsAvailable = !error;
+  return extendedColumnsAvailable;
+}
+
+const BASE_COLUMNS = "sport,id,title,date,status,home_team_score,visitor_team_score,search_count";
+const EXTENDED_COLUMNS = `${BASE_COLUMNS},postseason,home_team_abbr,visitor_team_abbr`;
+
 export async function searchGames({
   q,
   sport = "all",
@@ -75,19 +91,16 @@ export async function searchGames({
   pageSize?: number;
 }): Promise<{ games: GameSearchResult[]; total: number }> {
   const supabase = await createClient();
+  const extended = await hasExtendedColumns(supabase);
 
-  let query = supabase
-    .from("game_search")
-    .select(
-      "sport,id,title,date,status,home_team_score,visitor_team_score,search_count,postseason,home_team_abbr,visitor_team_abbr",
-      { count: "exact" }
-    );
+  const columns: string = extended ? EXTENDED_COLUMNS : BASE_COLUMNS;
+  let query = supabase.from("game_search").select(columns, { count: "exact" });
 
   if (sport !== "all") query = query.eq("sport", sport);
 
   const term = q.trim();
   if (term) {
-    const { isPlayoffPhrase, sport: phraseSport } = parsePlayoffPhrase(term);
+    const { isPlayoffPhrase, sport: phraseSport } = extended ? parsePlayoffPhrase(term) : { isPlayoffPhrase: false, sport: undefined };
     if (isPlayoffPhrase) {
       query = query.eq("postseason", true);
       if (phraseSport) query = query.eq("sport", phraseSport);
@@ -105,7 +118,16 @@ export async function searchGames({
 
   if (error) throw new Error(error.message);
 
-  return { games: (data as GameSearchResult[]) ?? [], total: count ?? 0 };
+  // Fill in safe defaults for the extended columns when they're not
+  // available yet, so callers can rely on the full GameSearchResult shape.
+  const games = ((data as unknown as Record<string, unknown>[]) ?? []).map((g) => ({
+    postseason: null,
+    home_team_abbr: "",
+    visitor_team_abbr: "",
+    ...g,
+  })) as GameSearchResult[];
+
+  return { games, total: count ?? 0 };
 }
 
 const GAME_TABLES: Record<GameSport, string> = {
