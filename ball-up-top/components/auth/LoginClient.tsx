@@ -19,7 +19,7 @@ function LoginForm() {
   const [state, formAction, pending] = useActionState(authAction, initialState);
   const searchParams = useSearchParams();
   const reason = searchParams.get("reason");
-  const redirectTo = reason === "diary" ? "/diary" : "/";
+  const redirectTo = reason === "diary" ? "/diary" : reason === "settings" ? "/settings" : "/";
 
   if (mode === "up" && state.checkEmail) {
     return (
@@ -46,7 +46,11 @@ function LoginForm() {
           display: "flex", alignItems: "center", gap: 9,
         }}>
           <Icon name="pen" size={16} stroke="var(--accent-strong)" />
-          {reason === "rate" ? "Sign in to rate and review matches." : "Sign in to see your diary."}
+          {reason === "rate"
+            ? "Sign in to rate and review matches."
+            : reason === "settings"
+            ? "Sign in to manage your account."
+            : "Sign in to see your diary."}
         </div>
       )}
       <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: -1, margin: "0 0 8px", color: "var(--text)" }}>
