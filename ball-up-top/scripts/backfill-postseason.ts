@@ -18,8 +18,11 @@ if (!apiKey) {
 const api = new BalldontlieAPI({ apiKey });
 
 // Assumes the `postseason` column already exists on the games tables. Only fetches
-// postseason games (server-side filter) and upserts { id, postseason: true } --
-// regular-season rows are left null, which search already treats as not-postseason.
+// postseason games (server-side filter) and flips `postseason = true` on the rows
+// that ALREADY exist -- an UPDATE ... in (ids), never an upsert. (Upsert here once
+// inserted 68 bare id-only rows into nba_games for playoff game ids the main
+// backfill never had; those had to be deleted by hand.) Regular-season rows are
+// left null, which search already treats as not-postseason.
 const SPORTS: {
   sport: "nba" | "nfl" | "mlb";
   table: string;
@@ -66,7 +69,12 @@ async function main() {
         const rows = response.data.map(game => ({ id: game.id, postseason: true }));
         return { rows, nextCursor: response.meta?.next_cursor };
       },
-      upsertRows: rows => supabase.from(table).upsert(rows, { onConflict: "id" }),
+      // UPDATE only -- do not INSERT ids the main backfill never had.
+      upsertRows: async rows => {
+        if (rows.length === 0) return { error: null };
+        const ids = rows.map(r => r.id as number);
+        return supabase.from(table).update({ postseason: true }).in("id", ids);
+      },
     });
   }
   console.log("Done!");

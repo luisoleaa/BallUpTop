@@ -57,9 +57,10 @@ scores, search_count, postseason, home/visitor team abbreviations).
   stay populated while real content is sparse). `lib/actions/ratings.ts` —
   `saveRatingAction`.
 - **Profiles**: `public.profiles` (id, display_name, RLS: public read, own-row
-  update), auto-created on signup via a `handle_new_user()` trigger on `auth.users`
-  insert (SQL, not in this repo — see the note at the bottom of this file). Edited at
-  `/settings` (`lib/actions/profile.ts`).
+  update **and** own-row insert as of the 2026-09-06 migration), auto-created on
+  signup via a `handle_new_user()` trigger on `auth.users` insert (live; see the
+  schema note at the bottom of this file). Edited at `/settings`
+  (`lib/actions/profile.ts`, which upserts so a pre-trigger user still works).
 - **Account deletion**: `/settings`'s danger zone calls a `delete_own_account()`
   `security definer` RPC (same pattern as `increment_game_search_count` below) — no
   service-role key anywhere in app code.
@@ -156,12 +157,24 @@ Removed during the original mock-data rewrite: `lib/mock-games.ts`, `lib/leagues
 historical-game detail page (see the games-search section above), not a resurrection
 of deleted mock code; don't confuse the two.
 
-## Schema not tracked in this repo
+## Schema — partly tracked as of 2026-09-06
 
-There's no `supabase/migrations/` — the live Postgres schema (RLS policies, the
-`game_search` view, the `handle_new_user`/`delete_own_account`/
-`increment_game_search_count` functions, `review_likes`/`reports` tables) lives only
-in the Supabase project itself. Any change to it is applied by hand via the SQL
-editor — check the most recent Obsidian progress-log entry for whether a given piece
-of SQL has actually been run yet before assuming a feature that depends on it is
-live.
+`supabase/migrations/` now exists, but it only tracks changes **from 2026-09-06
+onward** (see its `README.md`). Everything created before that — the base
+`*_games`/`*_teams`/`profiles`/`ratings` tables and their RLS, the original
+`game_search` view, `handle_new_user()` + its trigger, `increment_game_search_count()`,
+`rls_auto_enable()` — still lives only in the Supabase project and is **not**
+reproduced as a baseline migration.
+
+The migration that had been "pending a manual SQL step" since 08/31 was applied to
+the live project on 2026-09-06 and committed as `supabase/migrations/2026090600000{1..5}`:
+`postseason` column + `game_search` view rewrite (now also `security_invoker = on`),
+the `review_likes` and `reports` tables, the `delete_own_account()` RPC, and the
+`profiles` own-row `INSERT` policy. So real review likes, review reporting, account
+deletion, postseason phrase search, and real team logos are all live — postseason
+*data* is filled by running `scripts/backfill-postseason.ts` once (regular-season
+rows stay `NULL`).
+
+Future schema changes: add a file to `supabase/migrations/` **and** apply it to the
+live project (by hand in the SQL editor, or via tooling). There's still no CI that
+runs these automatically.

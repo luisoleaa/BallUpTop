@@ -9,7 +9,7 @@ import type { GameSport } from "@/lib/queries/games";
 const ESPN_ABBR_OVERRIDES: Partial<Record<GameSport, Record<string, string>>> = {
   nba: { GSW: "gs", NOP: "no", NYK: "ny", PHX: "phx", SAS: "sa", UTA: "utah", WAS: "wsh" },
   nfl: { WAS: "wsh" },
-  mlb: { CWS: "chw", WSH: "wsh" },
+  mlb: { AZ: "ari", CWS: "chw", WSH: "wsh" },
 };
 
 function espnLogoUrl(sport: GameSport, abbreviation: string) {

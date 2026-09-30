@@ -15,20 +15,15 @@ when asked to extend the app, not a to-do list to work through unprompted.
 - PWA activated (service worker registered, maskable icon), social preview image,
   baseline security headers.
 - A settings page (display name, spoiler toggle, sign out, account deletion).
-
-## Open: schema changes waiting on a manual SQL step
-
-These have application code written and ready, but need one SQL script run against
-the live Supabase project first (check the Obsidian progress log for whether it's
-been run yet):
-- `postseason` column + `game_search` view rewrite, for postseason-phrase search
-  ("finals"/"nba finals") and real team logos in search results.
-- `handle_new_user()` trigger, so every signup gets a `profiles` row automatically.
-- `review_likes` table — real likes on real fan reviews (mock `SeedReview.likes`
-  stays static for the still-mock seed content).
-- `reports` table — lets a signed-in user report a review (App/Play Store
-  UGC-moderation requirement).
-- `delete_own_account()` RPC — `/settings`'s delete-account button already calls it.
+- The "pending SQL migration" — applied to the live project 2026-09-06 and
+  committed as `supabase/migrations/2026090600000{1..5}`: `postseason` column +
+  `game_search` view rewrite, `review_likes` + `reports` tables,
+  `delete_own_account()` RPC, `profiles` own-row `INSERT` policy.
+  (`handle_new_user()` + trigger and `increment_game_search_count()` were already
+  live from earlier.) So review likes, review reporting, account deletion, and
+  postseason phrase search / real search logos are all wired end-to-end now.
+- `postseason` flags backfilled 2026-09-06 via `scripts/backfill-postseason.ts`
+  (NBA 4,551 / NFL 276 / MLB 896 playoff games; regular-season rows stay `NULL`).
 
 ## Open: unify the mock and real game systems
 
