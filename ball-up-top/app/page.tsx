@@ -1,21 +1,26 @@
 // Home page: hero, then Live now / Popular this week / On this day / Fight
-// cards / Upcoming sections. Live/Popular/Fight cards/Upcoming are the mock
-// MATCHES/EVENTS data; On this day pulls from the real historical archive.
+// cards / Upcoming sections. Live now is real MLB data; Popular/Fight cards/Upcoming
+// are the mock MATCHES/EVENTS data; On this day pulls from the real historical archive.
 import { EVENTS, getTopReviews, MATCHES } from "@/lib/data";
+import { getLiveMlbGames } from "@/routes/live/mlb_live";
 import { getOnThisDay } from "@/lib/queries/games";
+import { LiveGamesClient } from "@/components/live/liveGamesClient";
 import { EventCard } from "@/components/event/EventCard";
 import { GameResultCard } from "@/components/search/GameResultCard";
 import { HomeGrid } from "@/components/layout/HomeGrid";
 import { PopularReviews } from "@/components/layout/PopularReviews";
+import { Section } from "@/components/layout/Section";
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Label";
 
 export default async function HomePage() {
-  const live = MATCHES.filter((m) => m.status === "live");
-  const popular = MATCHES.filter((m) => m.heat && m.status === "final");
-  const upcoming = MATCHES.filter((m) => m.status === "upcoming" && !m.event);
-  const topReviews = getTopReviews(4);
-  const onThisDay = await getOnThisDay(6);
+  const [liveGames, popular, upcoming, topReviews, onThisDay] = await Promise.all([
+    getLiveMlbGames().catch(() => []),
+    Promise.resolve(MATCHES.filter((m) => m.heat && m.status === "final")),
+    Promise.resolve(MATCHES.filter((m) => m.status === "upcoming" && !m.event)),
+    Promise.resolve(getTopReviews(4)),
+    getOnThisDay(6),
+  ]);
 
   return (
     <main style={{ maxWidth: 1160, margin: "0 auto", padding: "0 28px 80px" }}>
@@ -32,13 +37,7 @@ export default async function HomePage() {
         <Button href="/login" pill>Start your diary</Button>
       </div>
 
-      <Section title="Live now" right={
-        <span style={{ fontSize: 11, color: "var(--live)", fontWeight: 700, fontFamily: "var(--font-mono, monospace)" }}>
-          {live.length} ON NOW
-        </span>
-      }>
-        <HomeGrid matches={live} />
-      </Section>
+      <LiveGamesClient initialGames={liveGames} />
 
       <Section title="Popular this week" right={
         <Button href="/browse" variant="ghost" size="sm">Browse all →</Button>
@@ -70,17 +69,5 @@ export default async function HomePage() {
         <HomeGrid matches={upcoming} />
       </Section>
     </main>
-  );
-}
-
-function Section({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section style={{ marginTop: 44 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 }}>
-        <Label as="h2" variant="section">{title}</Label>
-        {right}
-      </div>
-      {children}
-    </section>
   );
 }

@@ -24,16 +24,23 @@ when asked to extend the app, not a to-do list to work through unprompted.
   postseason phrase search / real search logos are all wired end-to-end now.
 - `postseason` flags backfilled 2026-09-06 via `scripts/backfill-postseason.ts`
   (NBA 4,551 / NFL 276 / MLB 896 playoff games; regular-season rows stay `NULL`).
+- Home page "Live now" section wired to real MLB Stats API: client-side polling every
+  30s, shows in-progress games with pulsing `LIVE <inning>` pill, fills empty slots
+  with upcoming games (soonest first), final games excluded, respects spoiler-free
+  mode. Live cards not yet linkable (ratings still key to mock ids).
 
 ## Open: unify the mock and real game systems
 
-- **Swap mock game data for a real live-scores provider**, at least for the sports
-  that have one (NBA/NFL/MLB/EPL via balldontlie or similar) — the real games/search
-  system is a separate, parallel track today, not yet used to back
-  `/browse`/`/matches`/home. Soccer/tennis/F1/UFC/NHL/cricket have no real data source
+The home "Live now" section is now wired to real MLB data (pilot). Next steps:
+- **Make live cards linkable**: wire `/matches/[id]` (or a new `/games/[id]` route for
+  real games) to match ratings against real MLB game ids instead of mock `Match.id`s.
+  Start here once UX for real-game detail is clear.
+- **Expand to other sports**: add real live games for NBA/NFL (via balldontlie or
+  similar stats provider). Soccer/tennis/F1/UFC/NHL/cricket have no live-scores API
   and stay mock indefinitely.
-- Decide whether `ratings`/reviews should eventually key against real game ids
-  instead of (or alongside) mock `Match.id`s, if/when the above happens.
+- **Unify the detail page systems**: `/browse`/`/matches/[id]`/`/events/[id]` still
+  use mock data only. Decide whether to keep the parallel mock system indefinitely or
+  migrate home/browse to real games (tradeoff: real data vs. curated mock experience).
 
 ## Open: mobile app stores
 

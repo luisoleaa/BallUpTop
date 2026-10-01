@@ -7,10 +7,15 @@ most styling is inline `style={{}}`, see design-system.md). **Supabase** (Postgr
 Auth, RLS on every table) is the real backend — not mocked. Two data systems coexist
 on purpose:
 
-- The original 9-sport `Match`/`Event` mock model (`lib/data.ts`) still powers the
-  home feed, `/browse`, `/matches/[id]`, `/events/[id]`. Real per-user data layers
-  (auth, ratings, reviews, profiles) are already wired to these mock matches — see
-  below — only the game/schedule data itself is still static.
+- The original 9-sport `Match`/`Event` mock model (`lib/data.ts`) powers
+  `/browse`, `/matches/[id]`, `/events/[id]`, and `Popular this week`/`Upcoming`
+  sections on the home feed. Real per-user data layers (auth, ratings, reviews,
+  profiles) are wired to these mock matches — see below — only the game/schedule data
+  itself is still static.
+- The home's "Live now" section is real MLB data, fetched client-side every 30s from
+  `routes/live/mlb_live.ts` (which polls the MLB Stats API). Live cards show team
+  logos + scores; they are not yet linkable (ratings key to mock ids, not real games).
+  See roadmap.md.
 - A separate, fully real NBA/NFL/MLB historical game archive
   (`nba_games`/`nfl_games`/`mlb_games`, backfilled from balldontlie.io — see
   `scripts/`), searchable at `/search`.

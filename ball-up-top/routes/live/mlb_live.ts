@@ -11,6 +11,7 @@ export interface liveGame {
   state: string;
   startTime: string;
   gameId: number;
+  inning: string | null;
   away: liveTeam;
   home: liveTeam;
 }
@@ -48,12 +49,17 @@ async function fetchMlbLiveData(): Promise<MlbScheduleResponse> {
 }
 
 export function mapMlbGame(raw: MlbGame): liveGame {
+  const inningState = raw.linescore?.inningState;
+  const currentInning = raw.linescore?.currentInningOrdinal;
+  const inning = inningState && currentInning ? `${inningState} ${currentInning}` : null;
+
   return {
     id: raw.gameGuid,
     sport: "mlb",
     state: raw.status.abstractGameState,
     startTime: raw.gameDate,
     gameId: raw.gamePk,
+    inning,
     away: {
       id: raw.teams.away.team.id,
       name: raw.teams.away.team.name,
@@ -73,4 +79,14 @@ export async function getLiveMlbGames(): Promise<liveGame[]> {
   const data = await fetchMlbLiveData();
   const games = data.dates[0]?.games ?? [];
   return games.map((g) => mapMlbGame(g));
+}
+
+export function selectLiveNow(games: liveGame[], target: number = 6): liveGame[] {
+  const live = games.filter((g) => g.state === "Live");
+  const upcoming = games
+    .filter((g) => g.state === "Preview")
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+  const needed = Math.max(0, target - live.length);
+  return [...live, ...upcoming.slice(0, needed)];
 }

@@ -1,101 +1,176 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { liveGame } from "@/routes/live/mlb_live";
+import { selectLiveNow } from "@/routes/live/mlb_live";
+import { useApp } from "@/lib/app-store";
+import { Section } from "../layout/Section";
 import { Card } from "../ui/Card";
 import { SportChip } from "../ui/SportChip";
 import { TeamLogo } from "../search/TeamLogo";
+import { StatusPill } from "../ui/StatusPill";
 
-export function LiveGamesClient() {
-  const [games, setGames] = useState<liveGame[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+export function LiveGamesClient({ initialGames }: { initialGames: liveGame[] }) {
+  const { hideScores } = useApp();
+  const [allGames, setAllGames] = useState<liveGame[]>(initialGames);
 
   useEffect(() => {
     const fetchGames = async () => {
+      // Skip fetch if document is hidden
+      if (document.hidden) return;
+
       try {
         const res = await fetch("/api/live/mlb");
-        const data = await res.json();
-        setGames(data.games || []);
-        setLoading(false);
-      } catch (error) {
-        setLoading(false);
+        if (res.ok) {
+          const data = await res.json();
+          setAllGames(data.games || initialGames);
+        }
+        // On error, keep previous games
+      } catch {
+        // Network error; keep previous games
       }
     };
+
     fetchGames();
+    const intervalId = setInterval(fetchGames, 30000); // poll every 30 seconds
 
-    const intervalId = setInterval(fetchGames, 30000); // fetches every 30 seconds
-    return () => clearInterval(intervalId);
-  }, []);
-  if (loading) return <div> Loading...</div>;
-  if (games.length == 0) return <div>No Live Games</div>;
+    // Refetch on visibility change (resume when tab becomes visible)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchGames();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
-  return (
-    <div
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [initialGames]);
+
+  const games = selectLiveNow(allGames);
+  const liveCount = allGames.filter((g) => g.state === "Live").length;
+
+  const header = (
+    <span
       style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-        gap: "14px",
-        padding: "20px",
+        fontSize: 11,
+        color: "var(--live)",
+        fontWeight: 700,
+        fontFamily: "var(--font-mono, monospace)",
       }}
     >
-      {games.map((game) => (
-        <Card key={game.id} padding={18}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "14px",
-            }}
-          >
-            <SportChip sport="mlb" />
+      {liveCount} ON NOW
+    </span>
+  );
+
+  if (games.length === 0) {
+    return (
+      <Section title="Live now" right={header}>
+        <Card
+          style={{
+            textAlign: "center",
+            color: "var(--text-faint)",
+            fontSize: 14,
+            padding: 32,
+          }}
+        >
+          No live games right now
+        </Card>
+      </Section>
+    );
+  }
+
+  return (
+    <Section title="Live now" right={header}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+          gap: 16,
+        }}
+      >
+        {games.map((game) => (
+          <Card key={game.id} padding={18}>
             <div
               style={{
-                fontSize: "11px",
-                color: "var(--text-faint)",
-                textTransform: "uppercase",
-                fontWeight: 700,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 14,
               }}
             >
-              {game.state}
-            </div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[game.away, game.home].map((team, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <TeamLogo sport="mlb" abbreviation={team.abbr} size={34} />
+              <SportChip sport="mlb" />
+              {game.state === "Live" ? (
+                <StatusPill
+                  match={{
+                    status: "live" as const,
+                    clock: game.inning || "",
+                    date: "",
+                  }}
+                />
+              ) : (
                 <span
                   style={{
-                    flex: 1,
-                    fontWeight: 700,
-                    fontSize: 15,
-                    color: "var(--text)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    fontFamily: "var(--font-mono, monospace)",
+                    letterSpacing: 0.3,
+                  }}
+                  suppressHydrationWarning
+                >
+                  {new Date(game.startTime).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[game.away, game.home].map((team, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
                   }}
                 >
-                  {team.name}
-                </span>
-                {team.score != null && (
+                  <TeamLogo sport="mlb" abbreviation={team.abbr} size={34} />
                   <span
                     style={{
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontWeight: 800,
-                      fontSize: 17,
+                      flex: 1,
+                      fontWeight: 700,
+                      fontSize: 15,
                       color: "var(--text)",
-                      minWidth: 26,
-                      textAlign: "right",
-                      fontVariantNumeric: "tabular-nums",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
                   >
-                    {team.score}
+                    {team.name}
                   </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </Card>
-      ))}
-    </div>
+                  {team.score != null && !hideScores && (
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono, monospace)",
+                        fontWeight: 800,
+                        fontSize: 17,
+                        color: "var(--text)",
+                        minWidth: 26,
+                        textAlign: "right",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {team.score}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </Section>
   );
 }

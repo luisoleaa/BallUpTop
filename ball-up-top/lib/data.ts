@@ -15,26 +15,10 @@ export const SPORTS: Record<SportSlug, Sport> = {
   cricket: { name: "Cricket", color: "#0d9488" },
 };
 
-// All mock matches/games/fights/races across every sport, live/final/upcoming.
+// All mock matches/games/fights/races across every sport, final/upcoming.
+// Live now is sourced from real MLB data (routes/live/mlb_live.ts) and displayed
+// on the home page via LiveGamesClient. See roadmap.md.
 export const MATCHES: Match[] = [
-  {
-    id: "m1", sport: "soccer", league: "Copa América · Group A", status: "live", clock: "67'",
-    a: { name: "Argentina", abbr: "ARG", color: "#6cace4", flag: "ar", score: 1 },
-    b: { name: "Brazil",    abbr: "BRA", color: "#f7d117", flag: "br", score: 1 },
-    avg: 8.2, logs: 2840, heat: true,
-  },
-  {
-    id: "m2", sport: "nba", league: "NBA Finals · Game 6", status: "live", clock: "Q3 4:12",
-    a: { name: "Boston Celtics",   abbr: "BOS", color: "#1d8348", score: 71 },
-    b: { name: "Oklahoma City",    abbr: "OKC", color: "#2980b9", score: 68 },
-    avg: 9.0, logs: 5120, heat: true,
-  },
-  {
-    id: "m3", sport: "mlb", league: "MLB · Interleague", status: "live", clock: "Top 8",
-    a: { name: "LA Dodgers",  abbr: "LAD", color: "#1e40af", score: 3 },
-    b: { name: "NY Yankees",  abbr: "NYY", color: "#0f172a", score: 4 },
-    avg: 7.2, logs: 910,
-  },
   {
     id: "m4", sport: "tennis", league: "Roland-Garros · Final", status: "final", date: "Jun 8, 2026",
     a: { name: "Carlos Alcaraz", abbr: "ALC", color: "#dc2626", flag: "es", score: 3 },
