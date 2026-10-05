@@ -2,7 +2,7 @@
 // cards / Upcoming sections. Live now is real MLB data; Popular/Fight cards/Upcoming
 // are the mock MATCHES/EVENTS data; On this day pulls from the real historical archive.
 import { EVENTS, getTopReviews, MATCHES } from "@/lib/data";
-import { getLiveMlbGames } from "@/routes/live/mlb_live";
+import { getAllLiveGames } from "@/routes/live/all_live";
 import { getOnThisDay } from "@/lib/queries/games";
 import { LiveGamesClient } from "@/components/live/liveGamesClient";
 import { EventCard } from "@/components/event/EventCard";
@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/Label";
 
 export default async function HomePage() {
   const [liveGames, popular, upcoming, topReviews, onThisDay] = await Promise.all([
-    getLiveMlbGames().catch(() => []),
+    getAllLiveGames(),
     Promise.resolve(MATCHES.filter((m) => m.heat && m.status === "final")),
     Promise.resolve(MATCHES.filter((m) => m.status === "upcoming" && !m.event)),
     Promise.resolve(getTopReviews(4)),

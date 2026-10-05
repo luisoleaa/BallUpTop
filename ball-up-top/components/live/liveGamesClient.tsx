@@ -1,15 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
-import type { liveGame } from "@/routes/live/mlb_live";
-import { selectLiveNow } from "@/routes/live/mlb_live";
+import { selectLiveNow, toSide, type liveGame } from "@/routes/live/live";
 import { useApp } from "@/lib/app-store";
 import { Section } from "../layout/Section";
 import { Card } from "../ui/Card";
 import { SportChip } from "../ui/SportChip";
-import { TeamLogo } from "../search/TeamLogo";
+import { Crest } from "../ui/Crest";
 import { StatusPill } from "../ui/StatusPill";
 
-export function LiveGamesClient({ initialGames }: { initialGames: liveGame[] }) {
+export function LiveGamesClient({
+  initialGames,
+}: {
+  initialGames: liveGame[];
+}) {
   const { hideScores } = useApp();
   const [allGames, setAllGames] = useState<liveGame[]>(initialGames);
 
@@ -19,7 +22,7 @@ export function LiveGamesClient({ initialGames }: { initialGames: liveGame[] }) 
       if (document.hidden) return;
 
       try {
-        const res = await fetch("/api/live/mlb");
+        const res = await fetch("/api/live");
         if (res.ok) {
           const data = await res.json();
           setAllGames(data.games || initialGames);
@@ -90,7 +93,12 @@ export function LiveGamesClient({ initialGames }: { initialGames: liveGame[] }) 
         }}
       >
         {games.map((game) => (
-          <Card key={game.id} padding={18}>
+          <Card
+            key={game.id}
+            href={`/matches/${game.id}`}
+            padding={18}
+            style={{ display: "block" }}
+          >
             <div
               style={{
                 display: "flex",
@@ -99,12 +107,12 @@ export function LiveGamesClient({ initialGames }: { initialGames: liveGame[] }) 
                 marginBottom: 14,
               }}
             >
-              <SportChip sport="mlb" />
+              <SportChip sport={game.sport} />
               {game.state === "Live" ? (
                 <StatusPill
                   match={{
                     status: "live" as const,
-                    clock: game.inning || "",
+                    clock: game.clock || "",
                     date: "",
                   }}
                 />
@@ -136,7 +144,7 @@ export function LiveGamesClient({ initialGames }: { initialGames: liveGame[] }) 
                     gap: 10,
                   }}
                 >
-                  <TeamLogo sport="mlb" abbreviation={team.abbr} size={34} />
+                  <Crest side={toSide(team, game.sport)} size={34} />
                   <span
                     style={{
                       flex: 1,

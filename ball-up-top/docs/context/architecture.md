@@ -12,10 +12,35 @@ on purpose:
   sections on the home feed. Real per-user data layers (auth, ratings, reviews,
   profiles) are wired to these mock matches — see below — only the game/schedule data
   itself is still static.
-- The home's "Live now" section is real MLB data, fetched client-side every 30s from
-  `routes/live/mlb_live.ts` (which polls the MLB Stats API). Live cards show team
-  logos + scores; they are not yet linkable (ratings key to mock ids, not real games).
-  See roadmap.md.
+- The home's "Live now" section is real data across **MLB, NBA, NFL, soccer (top 5
+  European leagues + Champions League), and UFC** in one combined feed, polled
+  client-side every 30s from `/api/live`. Code lives in `routes/live/`: `live.ts`
+  (shared `liveGame` type, id helpers, `selectLiveNow` — round-robins live games
+  across sports so one sport's many simultaneous games can't monopolize the slots,
+  `toMatch`, `toSide` — pure, safe for client imports), `mlb_live.ts` (MLB Stats
+  API), `nba_live.ts`/`nfl_live.ts` (ESPN's keyless site API — `cdn.nba.com` 403s
+  server requests but `site.api.espn.com` doesn't; ESPN is unofficial like the logo
+  CDN), `soccer_live.ts` (same ESPN API, fanned out across 6 league codes
+  internally — `eng.1`/`esp.1`/`ger.1`/`ita.1`/`fra.1`/`uefa.champions` — but looks
+  like one provider to `all_live.ts`), `ufc_live.ts` (same ESPN API; one ESPN
+  "event" is a fight card bundling multiple "competitions" — individual fights —
+  so this module flattens each card into one `liveGame` per fight, keyed by
+  competition id rather than event id, since neither `summary?event=` nor
+  `scoreboard?event=` resolve a single fight/card for MMA — by-id lookup instead
+  embeds the fight's UTC date in the id and queries `scoreboard?dates=` narrowly),
+  `all_live.ts` (`getAllLiveGames`/`getLiveGamesByIds`, backed by a
+  `Record<LiveSport, provider>` registry so a new sport is a one-line addition;
+  `allSettled` so one provider failing doesn't blank the others). Real games use
+  match ids namespaced `<sport>-<opaque provider id>` (`mlb-<gamePk>`,
+  `nba-<espnEventId>`, `soccer-<leagueCode>-<espnEventId>`,
+  `ufc-<utcDateKey>-<espnCompetitionId>`; ratings.match_id is plain text, no FK),
+  are adapted to `Match` by `toMatch()`, and resolve on `/matches/[id]` via
+  `lib/queries/matches.ts`'s `getAnyMatch` (mock first, then provider) — so
+  rating, reviews, and the diary reuse the mock-match UI. `Side.logoSport`
+  (`"nba"|"nfl"|"mlb"` only) makes `Crest` render the ESPN logo via
+  sport+abbreviation; `Side.logoUrl` (soccer, where ESPN hands back the crest URL
+  directly) and `Side.flag` (UFC, mapped from ESPN's country code to the handful
+  FlagBadge supports) are the other two tiers of the same fallback chain.
 - A separate, fully real NBA/NFL/MLB historical game archive
   (`nba_games`/`nfl_games`/`mlb_games`, backfilled from balldontlie.io — see
   `scripts/`), searchable at `/search`.

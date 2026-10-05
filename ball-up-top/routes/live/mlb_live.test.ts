@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { mapMlbGame, selectLiveNow } from "./mlb_live";
-import type { liveGame } from "./mlb_live";
+import { mapMlbGame } from "./mlb_live";
+import {
+  liveMatchId,
+  parseLiveMatchId,
+  selectLiveNow,
+  toMatch,
+  type liveGame,
+} from "./live";
 
 describe("mapMlbGame", () => {
   it("extracts abbreviation correctly", () => {
@@ -26,7 +32,8 @@ describe("mapMlbGame", () => {
     const result = mapMlbGame(raw as any);
     expect(result.away.abbr).toBe("NYY");
     expect(result.home.abbr).toBe("WSH");
-    expect(result.inning).toBe("Top 6th");
+    expect(result.clock).toBe("Top 6th");
+    expect(result.id).toBe("mlb-123");
   });
 
   it("handles missing inning gracefully", () => {
@@ -50,20 +57,25 @@ describe("mapMlbGame", () => {
     };
 
     const result = mapMlbGame(raw as any);
-    expect(result.inning).toBeNull();
+    expect(result.clock).toBeNull();
     expect(result.away.score).toBeNull();
     expect(result.home.score).toBeNull();
   });
 });
 
 describe("selectLiveNow", () => {
-  const makeLiveGame = (id: string, state: string, startTime: string): liveGame => ({
+  const makeLiveGame = (
+    id: string,
+    state: string,
+    startTime: string,
+  ): liveGame => ({
     id,
     sport: "mlb",
     state,
     startTime,
-    gameId: parseInt(id),
-    inning: state === "Live" ? "Top 5th" : null,
+    gameId: id,
+    clock: state === "Live" ? "Top 5th" : null,
+    league: "MLB",
     away: { id: 1, name: "Away", abbr: "AWY", score: 0 },
     home: { id: 2, name: "Home", abbr: "HOM", score: 0 },
   });
@@ -132,5 +144,64 @@ describe("selectLiveNow", () => {
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe("1");
     expect(result[1].id).toBe("2");
+  });
+});
+
+describe("live match ids", () => {
+  it("round-trips a gamePk", () => {
+    expect(liveMatchId("mlb", "849841")).toBe("mlb-849841");
+    expect(parseLiveMatchId("mlb-849841")).toEqual({
+      sport: "mlb",
+      gameId: "849841",
+    });
+    expect(parseLiveMatchId("nba-401902644")).toEqual({
+      sport: "nba",
+      gameId: "401902644",
+    });
+  });
+
+  it("gameId is opaque: a composite id (soccer's league-qualified id) round-trips verbatim", () => {
+    expect(parseLiveMatchId("soccer-eng.1-401584339")).toEqual({
+      sport: "soccer",
+      gameId: "eng.1-401584339",
+    });
+  });
+
+  it("rejects mock and malformed ids", () => {
+    expect(parseLiveMatchId("m4")).toBeNull();
+    expect(parseLiveMatchId("mlb-")).toBeNull();
+    expect(parseLiveMatchId("nhl-5")).toBeNull();
+  });
+});
+
+describe("toMatch", () => {
+  const base: liveGame = {
+    id: "mlb-849841",
+    sport: "mlb",
+    state: "Live",
+    startTime: "2026-10-01T23:05:00Z",
+    gameId: "849841",
+    clock: "Top 8th",
+    league: "MLB · NL Wild Card Series",
+    away: { id: 143, name: "Philadelphia Phillies", abbr: "PHI", score: 3 },
+    home: { id: 144, name: "Atlanta Braves", abbr: "ATL", score: 4 },
+  };
+
+  it("maps a live game: away is side a, inning becomes the clock, real logos", () => {
+    const m = toMatch(base);
+    expect(m.id).toBe("mlb-849841");
+    expect(m.status).toBe("live");
+    expect(m.clock).toBe("Top 8th");
+    expect(m.a.abbr).toBe("PHI");
+    expect(m.b.score).toBe(4);
+    expect(m.a.logoSport).toBe("mlb");
+    expect(m.avg).toBeNull();
+  });
+
+  it("formats dates in US Eastern", () => {
+    expect(toMatch({ ...base, state: "Final" }).date).toBe("Oct 1, 2026");
+    expect(toMatch({ ...base, state: "Preview" }).date).toBe(
+      "Oct 1, 7:05 PM ET",
+    );
   });
 });

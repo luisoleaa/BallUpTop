@@ -24,23 +24,36 @@ when asked to extend the app, not a to-do list to work through unprompted.
   postseason phrase search / real search logos are all wired end-to-end now.
 - `postseason` flags backfilled 2026-09-06 via `scripts/backfill-postseason.ts`
   (NBA 4,551 / NFL 276 / MLB 896 playoff games; regular-season rows stay `NULL`).
+- NBA added to "Live now" (10/01/2026) via ESPN's keyless scoreboard/summary API,
+  same clickable/rateable flow as MLB (`/matches/nba-<espnEventId>`).
 - Home page "Live now" section wired to real MLB Stats API: client-side polling every
   30s, shows in-progress games with pulsing `LIVE <inning>` pill, fills empty slots
   with upcoming games (soonest first), final games excluded, respects spoiler-free
-  mode. Live cards not yet linkable (ratings still key to mock ids).
+  mode. Cards link to `/matches/mlb-<gamePk>`, where real games can be rated and
+  reviewed; they show up in the diary too.
+- NFL, soccer (top 5 European leagues + Champions League), and UFC added to "Live
+  now" (10/05/2026), all via ESPN's keyless site API — `routes/live/all_live.ts`
+  now runs a 5-provider registry (`mlb`/`nba`/`nfl`/`soccer`/`ufc`) instead of a
+  hardcoded MLB+NBA pair, and `selectLiveNow` round-robins live games across sports
+  so one sport's simultaneous games can't crowd out the others. `tennis`/`f1`/`nhl`/
+  `cricket` remain the only sports still mock-only.
 
 ## Open: unify the mock and real game systems
 
-The home "Live now" section is now wired to real MLB data (pilot). Next steps:
-- **Make live cards linkable**: wire `/matches/[id]` (or a new `/games/[id]` route for
-  real games) to match ratings against real MLB game ids instead of mock `Match.id`s.
-  Start here once UX for real-game detail is clear.
-- **Expand to other sports**: add real live games for NBA/NFL (via balldontlie or
-  similar stats provider). Soccer/tennis/F1/UFC/NHL/cricket have no live-scores API
-  and stay mock indefinitely.
+The home "Live now" section is now wired to five real sports (MLB, NBA, NFL,
+soccer, UFC). Next steps:
+- **Live-updating detail page**: `/matches/<sport>-*` is a snapshot at request
+  time; the scoreboard doesn't poll like the home cards do.
+- **Expand to the remaining sports**: tennis, F1, NHL, and cricket stay mock —
+  NHL would be the next easy win (same ESPN keyless-API family as NFL/soccer/UFC).
 - **Unify the detail page systems**: `/browse`/`/matches/[id]`/`/events/[id]` still
   use mock data only. Decide whether to keep the parallel mock system indefinitely or
   migrate home/browse to real games (tradeoff: real data vs. curated mock experience).
+- **Real UFC event pages**: individual fights resolve on `/matches/ufc-*` (same
+  pattern as every other sport), but there's no real `/events/[id]` page bundling a
+  fight card's real fights together the way the mock `Event` model does for UFC —
+  out of scope for the initial live-feed work, not yet decided whether it's worth
+  building.
 
 ## Open: mobile app stores
 

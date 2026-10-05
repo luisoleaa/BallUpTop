@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getMatch, REVIEWS, SPORTS } from "@/lib/data";
+import { REVIEWS, SPORTS } from "@/lib/data";
+import { getAnyMatch } from "@/lib/queries/matches";
 import { getUser } from "@/lib/supabase/server";
 import { getMatchReviews, getUserRatingForMatch } from "@/lib/queries/ratings";
 import { MatchDetailClient } from "@/components/match/MatchDetailClient";
@@ -9,7 +10,7 @@ import { MatchDetailClient } from "@/components/match/MatchDetailClient";
 // app itself (can show up in a chat before the viewer chooses to look).
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const match = getMatch(id);
+  const match = await getAnyMatch(id);
   if (!match) return {};
   return {
     title: `${match.a.name} vs ${match.b.name}`,
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const match = getMatch(id);
+  const match = await getAnyMatch(id);
   if (!match) notFound();
 
   const reviews = REVIEWS[id] ?? [];

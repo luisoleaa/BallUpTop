@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/supabase/server";
 import { getUserRatings } from "@/lib/queries/ratings";
+import { getRealMatchesForIds } from "@/lib/queries/matches";
 import { DiaryClient } from "@/components/diary/DiaryClient";
 
 export const metadata: Metadata = { title: "Your diary" };
@@ -12,6 +13,7 @@ export default async function DiaryPage() {
   if (!user) redirect("/login?reason=diary");
 
   const ratings = await getUserRatings(user.id);
+  const realMatches = await getRealMatchesForIds(ratings.map((r) => r.matchId));
 
-  return <DiaryClient ratings={ratings} />;
+  return <DiaryClient ratings={ratings} realMatches={realMatches} />;
 }

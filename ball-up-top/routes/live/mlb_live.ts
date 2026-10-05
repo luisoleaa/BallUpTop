@@ -1,20 +1,5 @@
-interface liveTeam {
-  id: number;
-  name: string;
-  abbr: string;
-  score: number | null;
-}
-
-export interface liveGame {
-  id: string;
-  sport: "mlb";
-  state: string;
-  startTime: string;
-  gameId: number;
-  inning: string | null;
-  away: liveTeam;
-  home: liveTeam;
-}
+// MLB source for the live-games feed: the keyless MLB Stats API.
+import { liveMatchId, type liveGame } from "./live";
 
 interface MlbTeamSide {
   team: { id: number; name: string; abbreviation: string };
@@ -26,13 +11,14 @@ interface MlbGame {
   gamePk: number;
   gameDate: string;
   gameNumber: number;
+  seriesDescription?: string;
   status: { abstractGameState: string; detailedState: string };
   teams: { away: MlbTeamSide; home: MlbTeamSide };
   linescore?: {
     currentInningOrdinal?: string;
     inningState?: string;
     outs?: number;
-    offense?: any;
+    offense?: unknown;
   };
 }
 
@@ -40,26 +26,33 @@ export interface MlbScheduleResponse {
   dates: { games: MlbGame[] }[];
 }
 
-async function fetchMlbLiveData(): Promise<MlbScheduleResponse> {
-  const res = await fetch("https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=linescore,team", {
-    cache: "no-store",
-  });
-  const data = await res.json();
-  return data;
+const SCHEDULE_URL =
+  "https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=linescore,team";
+
+async function fetchSchedule(url: string): Promise<MlbScheduleResponse> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`MLB schedule request failed: ${res.status}`);
+  return res.json();
 }
 
 export function mapMlbGame(raw: MlbGame): liveGame {
+  const state = raw.status.abstractGameState;
   const inningState = raw.linescore?.inningState;
   const currentInning = raw.linescore?.currentInningOrdinal;
-  const inning = inningState && currentInning ? `${inningState} ${currentInning}` : null;
+  const clock =
+    state === "Live" && inningState && currentInning
+      ? `${inningState} ${currentInning}`
+      : null;
+  const gameId = String(raw.gamePk);
 
   return {
-    id: raw.gameGuid,
+    id: liveMatchId("mlb", gameId),
     sport: "mlb",
-    state: raw.status.abstractGameState,
+    state,
     startTime: raw.gameDate,
-    gameId: raw.gamePk,
-    inning,
+    gameId,
+    clock,
+    league: raw.seriesDescription ? `MLB · ${raw.seriesDescription}` : "MLB",
     away: {
       id: raw.teams.away.team.id,
       name: raw.teams.away.team.name,
@@ -76,17 +69,16 @@ export function mapMlbGame(raw: MlbGame): liveGame {
 }
 
 export async function getLiveMlbGames(): Promise<liveGame[]> {
-  const data = await fetchMlbLiveData();
+  const data = await fetchSchedule(SCHEDULE_URL);
   const games = data.dates[0]?.games ?? [];
   return games.map((g) => mapMlbGame(g));
 }
 
-export function selectLiveNow(games: liveGame[], target: number = 6): liveGame[] {
-  const live = games.filter((g) => g.state === "Live");
-  const upcoming = games
-    .filter((g) => g.state === "Preview")
-    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-
-  const needed = Math.max(0, target - live.length);
-  return [...live, ...upcoming.slice(0, needed)];
+// Look up specific games (any date) by gamePk, e.g. for a detail page or the diary.
+export async function getMlbGamesByPk(gamePks: string[]): Promise<liveGame[]> {
+  if (gamePks.length === 0) return [];
+  const data = await fetchSchedule(
+    `${SCHEDULE_URL}&gamePks=${gamePks.join(",")}`,
+  );
+  return (data.dates ?? []).flatMap((d) => d.games).map((g) => mapMlbGame(g));
 }
