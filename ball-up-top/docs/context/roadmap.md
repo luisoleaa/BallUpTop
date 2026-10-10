@@ -37,13 +37,23 @@ when asked to extend the app, not a to-do list to work through unprompted.
   hardcoded MLB+NBA pair, and `selectLiveNow` round-robins live games across sports
   so one sport's simultaneous games can't crowd out the others. `tennis`/`f1`/`nhl`/
   `cricket` remain the only sports still mock-only.
+- Live chat + a real rating-pulse chart on `/matches/[id]` (10/06/2026) — any
+  match with `status === "live"` (mock or real) gets a chat feed and a fast
+  1-10 tap row for repeated in-the-moment rating "pulses," client-polled every
+  5s; a chart built from everyone's pulses (`components/match/LiveRatingChart.tsx`)
+  shows how the crowd's rating moved over the match, and stays visible
+  read-only once the match is final — a real, permanent record alongside the
+  existing synthetic "Community rating" histogram. `public.live_chat_messages`/
+  `public.live_rating_pulses`, see architecture.md.
 
 ## Open: unify the mock and real game systems
 
 The home "Live now" section is now wired to five real sports (MLB, NBA, NFL,
 soccer, UFC). Next steps:
-- **Live-updating detail page**: `/matches/<sport>-*` is a snapshot at request
-  time; the scoreboard doesn't poll like the home cards do.
+- **Live-updating scoreboard**: `/matches/<sport>-*`'s scoreboard itself still
+  doesn't poll like the home cards do — it's a snapshot at request time. (Chat
+  and rating pulses on the same page now do poll, as of 10/06/2026 — see "Done"
+  above — but that's additive and doesn't touch the scoreboard/clock.)
 - **Expand to the remaining sports**: tennis, F1, NHL, and cricket stay mock —
   NHL would be the next easy win (same ESPN keyless-API family as NFL/soccer/UFC).
 - **Unify the detail page systems**: `/browse`/`/matches/[id]`/`/events/[id]` still

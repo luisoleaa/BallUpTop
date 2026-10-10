@@ -4,11 +4,19 @@ import { REVIEWS, SPORTS } from "@/lib/data";
 import { getAnyMatch } from "@/lib/queries/matches";
 import { getUser } from "@/lib/supabase/server";
 import { getMatchReviews, getUserRatingForMatch } from "@/lib/queries/ratings";
+import {
+  getLiveChatMessages,
+  getLiveRatingPulses,
+} from "@/lib/queries/live-activity";
 import { MatchDetailClient } from "@/components/match/MatchDetailClient";
 
 // No score in the description -- link previews are more "public" than the
 // app itself (can show up in a chat before the viewer chooses to look).
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
   const { id } = await params;
   const match = await getAnyMatch(id);
   if (!match) return {};
@@ -18,7 +26,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MatchPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const match = await getAnyMatch(id);
   if (!match) notFound();
@@ -36,8 +48,22 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   }
 
   const user = await getUser();
-  const initialRating = user ? await getUserRatingForMatch(user.id, id) : null;
-  const realReviews = await getMatchReviews(id, user?.id);
+
+  // None of these three depends on another's result (only on `user`, already
+  // resolved above), so they run in parallel rather than one-after-another.
+  // Live-activity fetch skipped entirely for "upcoming" matches -- no
+  // chat/pulses exist yet.
+  const [initialRating, realReviews, [initialLiveMessages, initialLivePulses]] =
+    await Promise.all([
+      user ? getUserRatingForMatch(user.id, id) : Promise.resolve(null),
+      getMatchReviews(id, user?.id),
+      match.status !== "upcoming"
+        ? Promise.all([getLiveChatMessages(id), getLiveRatingPulses(id)])
+        : Promise.resolve([[], []] as [
+            Awaited<ReturnType<typeof getLiveChatMessages>>,
+            Awaited<ReturnType<typeof getLiveRatingPulses>>,
+          ]),
+    ]);
 
   return (
     <MatchDetailClient
@@ -46,6 +72,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       realReviews={realReviews}
       dist={dist}
       initialRating={initialRating}
+      initialLiveMessages={initialLiveMessages}
+      initialLivePulses={initialLivePulses}
     />
   );
 }

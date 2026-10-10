@@ -89,3 +89,21 @@ export interface Rating {
   createdAt: string;
   updatedAt: string;
 }
+
+// Live chat message tied to a match (public.live_chat_messages).
+export interface LiveChatMessage {
+  id: string;
+  matchId: string;
+  userName: string;
+  message: string;
+  createdAt: string;
+}
+
+// A single timestamped 1-10 "pulse" (public.live_rating_pulses). Distinct
+// from Rating: many rows per user per match, no review/tags/upsert semantics.
+export interface LiveRatingPulse {
+  id: string;
+  matchId: string;
+  rating: number;
+  createdAt: string;
+}

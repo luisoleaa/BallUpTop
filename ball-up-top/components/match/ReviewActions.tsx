@@ -11,10 +11,12 @@ import { reportReviewAction } from "@/lib/actions/reports";
 import { Icon } from "../ui/Icon";
 
 export function ReviewActions({
+  matchId,
   ratingId,
   initialLikeCount,
   initialLikedByMe,
 }: {
+  matchId: string;
   ratingId: string;
   initialLikeCount: number;
   initialLikedByMe: boolean;
@@ -25,8 +27,16 @@ export function ReviewActions({
   const [count, setCount] = useState(initialLikeCount);
   const [reported, setReported] = useState(false);
 
+  const loginRedirect = () =>
+    router.push(
+      `/login?reason=rate&from=${encodeURIComponent(`/matches/${matchId}`)}`,
+    );
+
   const handleLike = async () => {
-    if (!user) { router.push("/login?reason=rate"); return; }
+    if (!user) {
+      loginRedirect();
+      return;
+    }
     // Optimistic update, rolled back on error.
     const prevLiked = liked;
     const prevCount = count;
@@ -42,7 +52,10 @@ export function ReviewActions({
   };
 
   const handleReport = async () => {
-    if (!user) { router.push("/login?reason=rate"); return; }
+    if (!user) {
+      loginRedirect();
+      return;
+    }
     setReported(true);
     const result = await reportReviewAction(ratingId);
     if ("error" in result) {
@@ -54,25 +67,46 @@ export function ReviewActions({
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 10 }}>
+    <div
+      style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 10 }}
+    >
       <button
         onClick={handleLike}
         style={{
-          display: "flex", alignItems: "center", gap: 5, border: "none", background: "transparent",
-          cursor: "pointer", padding: 0, color: liked ? "var(--star)" : "var(--text-faint)",
-          fontSize: 12, fontWeight: 700, fontFamily: "var(--font-mono, monospace)",
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+          padding: 0,
+          color: liked ? "var(--star)" : "var(--text-faint)",
+          fontSize: 12,
+          fontWeight: 700,
+          fontFamily: "var(--font-mono, monospace)",
         }}
       >
-        <Icon name="flame" size={13} stroke={liked ? "var(--star)" : "var(--text-faint)"} />
+        <Icon
+          name="flame"
+          size={13}
+          stroke={liked ? "var(--star)" : "var(--text-faint)"}
+        />
         {count > 0 ? count.toLocaleString() : "Like"}
       </button>
       <button
         onClick={handleReport}
         disabled={reported}
         style={{
-          display: "flex", alignItems: "center", gap: 5, border: "none", background: "transparent",
-          cursor: reported ? "default" : "pointer", padding: 0, color: "var(--text-faint)",
-          fontSize: 12, fontWeight: 600,
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          border: "none",
+          background: "transparent",
+          cursor: reported ? "default" : "pointer",
+          padding: 0,
+          color: "var(--text-faint)",
+          fontSize: 12,
+          fontWeight: 600,
         }}
       >
         <Icon name="flag" size={13} stroke="var(--text-faint)" />

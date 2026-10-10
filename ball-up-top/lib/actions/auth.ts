@@ -4,6 +4,7 @@
 // the email is confirmed, so the caller gets checkEmail: true instead.
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 export interface AuthActionState {
   error?: string;
@@ -12,7 +13,7 @@ export interface AuthActionState {
 
 export async function authAction(
   _prevState: AuthActionState,
-  formData: FormData
+  formData: FormData,
 ): Promise<AuthActionState> {
   const mode = formData.get("mode") === "up" ? "up" : "in";
   const email = String(formData.get("email") ?? "").trim();
@@ -37,5 +38,8 @@ export async function authAction(
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
 
-  redirect(String(formData.get("redirectTo") || "/"));
+  // authAction is a Server Action, directly POST-able -- it can be hit
+  // without going through LoginClient.tsx's own safeRedirectPath check, so
+  // the raw value must be re-validated here too, not just trusted.
+  redirect(safeRedirectPath(String(formData.get("redirectTo") ?? "")) ?? "/");
 }

@@ -92,8 +92,37 @@ scores, search_count, postseason, home/visitor team abbreviations).
   schema note at the bottom of this file). Edited at `/settings`
   (`lib/actions/profile.ts`, which upserts so a pre-trigger user still works).
 - **Account deletion**: `/settings`'s danger zone calls a `delete_own_account()`
-  `security definer` RPC (same pattern as `increment_game_search_count` below) — no
-  service-role key anywhere in app code.
+  `security definer` RPC (same pattern as `increment_game_search_count` below) —
+  no service-role key needed for this feature specifically (see the "Live
+  chat + rating pulses" entry below for the app's one actual service-role-key
+  use).
+- **Live chat + rating pulses**: `public.live_chat_messages` / `public.live_rating_pulses`
+  (RLS: public read, own-row insert only, no update/delete — both are immutable,
+  append-only history; `match_id` is plain text, no FK, same convention as
+  `ratings.match_id`, so mock and real match ids share the tables).
+  `lib/queries/live-activity.ts` — `getLiveChatMessages` (profile-merged display
+  names, same pattern as `getMatchReviews`), `getLiveRatingPulses`.
+  `lib/actions/live-activity.ts` — `postLiveChatMessageAction`/`submitRatingPulseAction`,
+  both re-resolving the match's current status via `resolveMatchStatus`'s cache-first
+  layer (`lib/match-status-cache.ts`, backed by `public.match_status_cache`, synced with
+  the service role, and read back via a `get_fresh_match_status` SQL RPC so freshness is
+  checked entirely in Postgres — avoiding any app-clock-vs-DB-clock drift) rather than
+  trusting a client-supplied status or re-hitting `getAnyMatch` on every call. Per-user
+  cooldowns (chat: 4s, pulses: 2s) are enforced atomically in Postgres by
+  `pg_advisory_xact_lock`-guarded `before insert` triggers (`enforce_live_chat_message_cooldown`/
+  `enforce_live_rating_pulse_cooldown`, raising Postgres error code `P0001`, translated to a
+  friendly message by `cooldownAwareError`) — there is no app-layer pre-check, since one
+  comparing `Date.now()` against a DB-set `created_at` would reintroduce the same clock-drift
+  class the cache's freshness check was built to avoid. `app/api/matches/[id]/live-activity/route.ts`
+  polls this data for
+  `components/match/LiveActivityPanel.tsx`, client-polled every 5s (tighter than
+  the home page's 30s "Live now" poll — chat feels laggier) while `status ===
+  "live"`, stopping permanently once a poll (or the initial SSR fetch) reports
+  `status === "final"`. `components/match/LiveRatingChart.tsx` renders a
+  hand-rolled inline `<svg>` polyline from `pulseBuckets.ts`'s pure bucketing (24
+  fixed buckets across the pulses' *observed* timespan, forward-filled between
+  real data points), colored via `ratingColor()` — visually and textually
+  distinct from the synthetic "Community rating" histogram on the same page.
 - **Real games archive**: `scripts/backfill*.ts` populate `nba_games`/`nfl_games`/
   `mlb_games`/`*_teams` from balldontlie.io. `lib/queries/games.ts`'s `searchGames()`
   queries a `game_search` Postgres view (UNION of the three sports) — team-name and

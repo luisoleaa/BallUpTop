@@ -1,11 +1,12 @@
 // Server-side reads for the `ratings` table. Mutations live in lib/actions/ratings.ts.
 import { createClient } from "@/lib/supabase/server";
 import { toRating, type RatingRow } from "@/lib/ratings-row";
+import { getDisplayNamesByUserId } from "@/lib/queries/profiles";
 import type { Rating } from "@/lib/types";
 
 export async function getUserRatingForMatch(
   userId: string,
-  matchId: string
+  matchId: string,
 ): Promise<Rating | null> {
   const supabase = await createClient();
   const { data } = await supabase
@@ -46,7 +47,10 @@ export interface MatchReview {
 // looked up best-effort -- review_likes may not exist yet (pending SQL
 // migration), in which case every review just shows 0 likes rather than
 // erroring the whole page.
-export async function getMatchReviews(matchId: string, currentUserId?: string): Promise<MatchReview[]> {
+export async function getMatchReviews(
+  matchId: string,
+  currentUserId?: string,
+): Promise<MatchReview[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("ratings")
@@ -59,9 +63,9 @@ export async function getMatchReviews(matchId: string, currentUserId?: string): 
   const rows = data ?? [];
   if (rows.length === 0) return [];
 
-  const userIds = [...new Set(rows.map((r) => r.user_id as string))];
-  const { data: profiles } = await supabase.from("profiles").select("id,display_name").in("id", userIds);
-  const nameById = new Map((profiles ?? []).map((p) => [p.id as string, p.display_name as string]));
+  const nameById = await getDisplayNamesByUserId(
+    rows.map((r) => r.user_id as string),
+  );
 
   const ratingIds = rows.map((r) => r.id as string);
   const likeCountById = new Map<string, number>();
@@ -74,7 +78,8 @@ export async function getMatchReviews(matchId: string, currentUserId?: string): 
     for (const l of likes ?? []) {
       const ratingId = l.rating_id as string;
       likeCountById.set(ratingId, (likeCountById.get(ratingId) ?? 0) + 1);
-      if (currentUserId && l.user_id === currentUserId) likedByMeSet.add(ratingId);
+      if (currentUserId && l.user_id === currentUserId)
+        likedByMeSet.add(ratingId);
     }
   }
 

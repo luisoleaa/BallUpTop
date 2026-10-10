@@ -19,7 +19,11 @@ export async function saveRatingAction(matchId: string, log: LogInput) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login?reason=rate");
+  if (!user) {
+    redirect(
+      `/login?reason=rate&from=${encodeURIComponent(`/matches/${matchId}`)}`,
+    );
+  }
 
   const { error } = await supabase.from("ratings").upsert(
     {
@@ -31,7 +35,7 @@ export async function saveRatingAction(matchId: string, log: LogInput) {
       watched_live: log.live,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,match_id" }
+    { onConflict: "user_id,match_id" },
   );
 
   if (error) throw new Error(error.message);
