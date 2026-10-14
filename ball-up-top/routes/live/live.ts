@@ -7,7 +7,7 @@ import type { Match, MatchStatus, Side } from "@/lib/types";
 // VALID_SPORTS both derive from this array so they can't drift apart (a
 // sport missing from VALID_SPORTS would fail to parse silently in
 // parseLiveMatchId, with no compiler error to catch it).
-const LIVE_SPORTS = ["mlb", "nba", "nfl", "soccer", "ufc"] as const;
+const LIVE_SPORTS = ["mlb", "nba", "nfl", "soccer", "ufc", "nhl"] as const;
 export type LiveSport = (typeof LIVE_SPORTS)[number];
 const VALID_SPORTS = new Set<LiveSport>(LIVE_SPORTS);
 
@@ -36,6 +36,73 @@ export interface liveGame {
   note?: string; // e.g. UFC's finish method once Final
   away: liveTeam;
   home: liveTeam;
+}
+
+// YYYYMMDD for a moment in US Eastern, ESPN's scoreboard day boundary.
+export function etDateKey(d: Date): string {
+  return d
+    .toLocaleDateString("en-CA", { timeZone: "America/New_York" })
+    .replaceAll("-", "");
+}
+
+// Hour-of-day (0-23) for a moment in US Eastern. Intl's h23 cycle is used
+// explicitly rather than hour12: false, which can format midnight as "24"
+// on some ICU versions.
+function etHour(d: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    timeZone: "America/New_York",
+  }).formatToParts(d);
+  return Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+}
+
+// A game that started "yesterday" can only still be live this far into
+// today (ET) -- covers a West Coast late start plus overtime. Outside this
+// window there's no need to also query yesterday's scoreboard.
+const YESTERDAY_RISK_WINDOW_END_HOUR_ET = 6;
+
+// Fetches an ESPN scoreboard for today (ET), and also yesterday when it's
+// still early enough that a game starting yesterday could be live, merging
+// the events and deduping by id -- defends against a late game still live
+// past midnight ET without relying on ESPN's `dates=<start>-<end>` range
+// syntax, which 400s on the NBA/NFL/NHL endpoint family (their sibling
+// /mma/ufc endpoint still accepts it, so this isn't a one-off format
+// mistake, it's specific to this family). Shared by
+// nba_live.ts/nfl_live.ts/nhl_live.ts, which otherwise had identical
+// fetch/merge/dedupe logic copy-pasted three times. A failed date request
+// is logged and skipped rather than failing the whole fetch, so a transient
+// blip on one date can't blank out the other date's good data.
+export async function fetchEtDateRangeEvents<E extends { id: string }>(
+  fetchScoreboard: (dates: string) => Promise<{ events?: E[] }>,
+  now: Date = new Date(),
+): Promise<E[]> {
+  const todayKey = etDateKey(now);
+  const dateKeys =
+    etHour(now) < YESTERDAY_RISK_WINDOW_END_HOUR_ET
+      ? [
+          ...new Set([
+            etDateKey(new Date(now.getTime() - 24 * 60 * 60 * 1000)),
+            todayKey,
+          ]),
+        ]
+      : [todayKey];
+
+  const results = await Promise.allSettled(dateKeys.map(fetchScoreboard));
+
+  const seen = new Set<string>();
+  return results
+    .flatMap((r) => {
+      if (r.status === "rejected") {
+        console.error(
+          "fetchEtDateRangeEvents: scoreboard request failed",
+          r.reason,
+        );
+        return [];
+      }
+      return r.value.events ?? [];
+    })
+    .filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
 }
 
 // Real games share the ratings table's text match_id with the mock matches,

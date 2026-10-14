@@ -5,6 +5,7 @@ import { parseLiveMatchId, type liveGame, type LiveSport } from "./live";
 import { getLiveMlbGames, getMlbGamesByPk } from "./mlb_live";
 import { getLiveNbaGames, getNbaGamesById } from "./nba_live";
 import { getLiveNflGames, getNflGamesById } from "./nfl_live";
+import { getLiveNhlGames, getNhlGamesById } from "./nhl_live";
 import { getLiveSoccerGames, getSoccerGamesById } from "./soccer_live";
 import { getLiveUfcGames, getUfcGamesById } from "./ufc_live";
 
@@ -23,14 +24,27 @@ const PROVIDERS: Record<LiveSport, LiveProvider> = {
   nfl: { today: getLiveNflGames, byIds: getNflGamesById },
   soccer: { today: getLiveSoccerGames, byIds: getSoccerGamesById },
   ufc: { today: getLiveUfcGames, byIds: getUfcGamesById },
+  nhl: { today: getLiveNhlGames, byIds: getNhlGamesById },
 };
+
+// Logs a rejected provider settlement instead of silently dropping it --
+// allSettled still lets every other provider's games through, but a
+// provider failing is otherwise invisible (e.g. the ESPN range-query 400
+// that quietly emptied NBA/NFL's slice of this feed for an unknown period
+// until it was caught by chance -- see roadmap.md's 10/13/2026 entry).
+function logRejected(sport: string, result: PromiseSettledResult<liveGame[]>) {
+  if (result.status === "rejected")
+    console.error(`live-feed provider failed (${sport})`, result.reason);
+}
 
 // Today's games across sports. allSettled so one provider being down
 // doesn't blank the whole "Live now" section.
 export async function getAllLiveGames(): Promise<liveGame[]> {
+  const sports = Object.keys(PROVIDERS) as LiveSport[];
   const results = await Promise.allSettled(
-    Object.values(PROVIDERS).map((p) => p.today()),
+    sports.map((sport) => PROVIDERS[sport].today()),
   );
+  results.forEach((r, i) => logRejected(sports[i], r));
   return results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 }
 
@@ -42,10 +56,10 @@ export async function getLiveGamesByIds(
   const idsFor = (sport: LiveSport) =>
     parsed.filter((p) => p.sport === sport).map((p) => p.gameId);
 
+  const sports = Object.keys(PROVIDERS) as LiveSport[];
   const results = await Promise.allSettled(
-    (Object.keys(PROVIDERS) as LiveSport[]).map((sport) =>
-      PROVIDERS[sport].byIds(idsFor(sport)),
-    ),
+    sports.map((sport) => PROVIDERS[sport].byIds(idsFor(sport))),
   );
+  results.forEach((r, i) => logRejected(sports[i], r));
   return results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 }

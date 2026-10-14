@@ -1,6 +1,11 @@
 // NFL source for the live-games feed: ESPN's keyless site API, same family
 // as the NBA source. Unofficial and could change without notice.
-import { liveMatchId, type liveGame, type liveTeam } from "./live";
+import {
+  fetchEtDateRangeEvents,
+  liveMatchId,
+  type liveGame,
+  type liveTeam,
+} from "./live";
 
 const ESPN_NFL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 
@@ -95,26 +100,28 @@ async function fetchJson<T>(url: string): Promise<T> {
   return res.json();
 }
 
-// YYYYMMDD for a moment in US Eastern, ESPN's scoreboard day boundary.
-export function etDateKey(d: Date): string {
-  return d
-    .toLocaleDateString("en-CA", { timeZone: "America/New_York" })
-    .replaceAll("-", "");
-}
-
 // Yesterday + today (ET): ESPN with no date returns the *next* game day, and
 // NFL games (notably Monday Night Football overtime) can in principle still
-// be live past midnight ET.
+// be live past midnight ET. See fetchEtDateRangeEvents in live.ts for why
+// this isn't a single range request.
 export async function getLiveNflGames(
   now: Date = new Date(),
 ): Promise<liveGame[]> {
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const data = await fetchJson<EspnScoreboard>(
-    `${ESPN_NFL}/scoreboard?dates=${etDateKey(yesterday)}-${etDateKey(now)}`,
+  const events = await fetchEtDateRangeEvents<EspnScoreboard["events"][number]>(
+    (dates) =>
+      fetchJson<EspnScoreboard>(`${ESPN_NFL}/scoreboard?dates=${dates}`),
+    now,
   );
-  return (data.events ?? [])
-    .map((e) => mapEspnCompetition(e.id, e.competitions[0], e.season))
-    .filter((g) => g != null);
+
+  return (
+    events
+      // A placeholder/TBD event can carry an empty competitions array; skip it
+      // rather than hand mapEspnCompetition an undefined competition, which
+      // would throw before its own away/home-side guard ever runs.
+      .filter((e) => e.competitions.length > 0)
+      .map((e) => mapEspnCompetition(e.id, e.competitions[0], e.season))
+      .filter((g) => g != null)
+  );
 }
 
 // Look up specific games (any date) by ESPN event id. ESPN has no batch
@@ -126,6 +133,11 @@ export async function getNflGamesById(ids: string[]): Promise<liveGame[]> {
         `${ESPN_NFL}/summary?event=${id}`,
       );
       const competition = header.competitions[0];
+      // header.season is typed as required, but that's only a TS-side
+      // contract -- a malformed/placeholder response could omit it at
+      // runtime the same way an empty competitions array can happen, and
+      // leagueLabel() unconditionally dereferences season.type.
+      if (!competition || !header.season) return null;
       const notes = competition.notes?.length
         ? competition.notes
         : header.gameNote

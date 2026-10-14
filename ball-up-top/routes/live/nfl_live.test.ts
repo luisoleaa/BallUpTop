@@ -1,10 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-  etDateKey,
-  mapEspnCompetition,
-  type EspnCompetition,
-} from "./nfl_live";
-import { toMatch } from "./live";
+import { mapEspnCompetition, type EspnCompetition } from "./nfl_live";
+import { etDateKey, toMatch } from "./live";
 
 // Test fixtures always include a valid away/home pair, so the mapper never
 // returns null here — assert that so call sites don't need `!` everywhere.

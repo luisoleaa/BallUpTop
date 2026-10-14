@@ -2,12 +2,13 @@
 
 // Client half of the match detail page: scoreboard, fan reviews, rating
 // distribution, and the user's own rating or a CTA to open RateModal.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/app-store";
 import { saveRatingAction } from "@/lib/actions/ratings";
 import { timeAgo } from "@/lib/time-ago";
 import type { MatchReview } from "@/lib/queries/ratings";
+import { parseLiveMatchId } from "@/routes/live/live";
 import type {
   LiveChatMessage,
   LiveRatingPulse,
@@ -57,7 +58,7 @@ interface DisplayReview {
 }
 
 export function MatchDetailClient({
-  match,
+  match: initialMatch,
   reviews,
   realReviews,
   dist,
@@ -67,10 +68,69 @@ export function MatchDetailClient({
 }: Props) {
   const { user, showToast, refreshRatings, hideScores } = useApp();
   const router = useRouter();
+  const [match, setMatch] = useState(initialMatch);
+  // Re-syncs `match` whenever the server hands down a new `initialMatch`
+  // (e.g. handleSave's router.refresh() below) -- without this, a fresh
+  // server-rendered match after a save would be silently dropped in favor of
+  // whatever this component's own poll last saw. This is the React-endorsed
+  // "adjust state during render" pattern (store the previous prop, compare,
+  // and re-set state inline) rather than an effect, so there's no extra
+  // render showing stale data first.
+  const [prevInitialMatch, setPrevInitialMatch] = useState(initialMatch);
+  if (initialMatch !== prevInitialMatch) {
+    setPrevInitialMatch(initialMatch);
+    setMatch(initialMatch);
+  }
   const [rating, setRating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const userRating = initialRating;
+
+  // Keeps the scoreboard itself live for real (non-mock) matches -- separate
+  // from LiveActivityPanel's own 5s chat/pulse poll below, which already
+  // tracks match status for its own purposes. Mock matches never change, and
+  // a mock id never parses here, so this never fires a request for them.
+  // Polls for "upcoming" too (not just "live"), since a match can go live
+  // while the tab stays open and there'd otherwise be no way to notice.
+  // Stops for good once a poll response reports the match final: re-running
+  // with the new status fails the check below and the old interval's
+  // cleanup already ran.
+  useEffect(() => {
+    if (match.status === "final" || !parseLiveMatchId(match.id)) return;
+    let cancelled = false;
+    // Guards against the interval tick and a visibilitychange-triggered
+    // poll overlapping (e.g. tab backgrounded mid-fetch, then refocused): a
+    // response only applies if no newer poll has started since, so an
+    // older request that happens to resolve last can't overwrite fresher
+    // data with stale data.
+    let latestSeq = 0;
+
+    const poll = async () => {
+      if (document.hidden || cancelled) return;
+      const seq = ++latestSeq;
+      try {
+        const res = await fetch(`/api/matches/${match.id}/live`);
+        if (!res.ok || cancelled || seq !== latestSeq) return;
+        const data = await res.json();
+        if (cancelled || !data.match || seq !== latestSeq) return;
+        setMatch(data.match);
+      } catch {
+        // Network error -- keep stale data, try again next tick.
+      }
+    };
+
+    poll();
+    const intervalId = setInterval(poll, 30000);
+    const onVisible = () => {
+      if (!document.hidden) poll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [match.id, match.status]);
   const existingLog = userRating
     ? {
         rating: userRating.rating,
@@ -608,6 +668,7 @@ export function MatchDetailClient({
               key={match.id}
               matchId={match.id}
               initialStatus={match.status}
+              matchStatus={match.status}
               initialMessages={initialLiveMessages}
               initialPulses={initialLivePulses}
             />

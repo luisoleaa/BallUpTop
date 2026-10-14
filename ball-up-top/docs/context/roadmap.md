@@ -35,7 +35,7 @@ when asked to extend the app, not a to-do list to work through unprompted.
   now" (10/05/2026), all via ESPN's keyless site API — `routes/live/all_live.ts`
   now runs a 5-provider registry (`mlb`/`nba`/`nfl`/`soccer`/`ufc`) instead of a
   hardcoded MLB+NBA pair, and `selectLiveNow` round-robins live games across sports
-  so one sport's simultaneous games can't crowd out the others. `tennis`/`f1`/`nhl`/
+  so one sport's simultaneous games can't crowd out the others. `tennis`/`f1`/
   `cricket` remain the only sports still mock-only.
 - Live chat + a real rating-pulse chart on `/matches/[id]` (10/06/2026) — any
   match with `status === "live"` (mock or real) gets a chat feed and a fast
@@ -45,17 +45,45 @@ when asked to extend the app, not a to-do list to work through unprompted.
   read-only once the match is final — a real, permanent record alongside the
   existing synthetic "Community rating" histogram. `public.live_chat_messages`/
   `public.live_rating_pulses`, see architecture.md.
+- NHL added to "Live now" (10/13/2026) via the same ESPN keyless site API family
+  as NFL/soccer/UFC — `routes/live/nhl_live.ts`, one more entry in
+  `all_live.ts`'s provider registry. No ESPN-CDN logo tier for NHL yet (`Side.logoSport`
+  stays `"nba"|"nfl"|"mlb"` only), so NHL crests fall back to the colored-monogram
+  tier of the `Crest` chain — intentional, not a gap to fix, per design-system.md's
+  "every side should always render something" rule. `tennis`/`f1`/`cricket` remain
+  the only sports still mock-only.
+- **Found and fixed while building NHL (10/13/2026)**: ESPN's `dates=<start>-<end>`
+  range-query syntax — the "yesterday+today" pattern NBA/NFL established to catch a
+  late game still live past midnight ET — started 400ing on that whole endpoint
+  family (verified live against NBA/NFL/NHL directly; their sibling `/mma/ufc`
+  endpoint still accepts it, and soccer never used range queries at all). This had
+  been silently degrading the already-shipped NBA and NFL "Live now" feeds for an
+  unknown period — `allSettled` in `all_live.ts` masks a provider failure as "no
+  live games" rather than an error. Fixed in `nba_live.ts`/`nfl_live.ts`/`nhl_live.ts`
+  by replacing the single range request with two single-date requests
+  (yesterday, today), merged and deduped by event id — same coverage, no
+  reliance on the now-broken range syntax.
+- Live-updating scoreboard shipped (10/13/2026) — `/matches/[id]` now polls
+  `/api/matches/[id]/live` every 30s for real (non-mock) matches whose status is
+  "live", same pattern as the home page's `liveGamesClient.tsx` poll (visibility-
+  aware, keeps stale data on a failed fetch). Mock matches never poll. Separate
+  from — and additive to — `LiveActivityPanel`'s own 5s chat/pulse poll.
+- Home "Popular reviews" now ranks real reviews (by `review_likes` count) first,
+  with mock `SeedReview` content filling in after, same real-first/mock-filler
+  pattern match detail pages already use (10/13/2026). New
+  `getTopRealReviews()` in `lib/queries/ratings.ts`; `PopularReviews.tsx` is now
+  purely presentational, given an already-resolved display list built in
+  `app/page.tsx`.
+- Contact email placeholders in `/privacy` and `/terms` filled in (10/13/2026).
 
 ## Open: unify the mock and real game systems
 
-The home "Live now" section is now wired to five real sports (MLB, NBA, NFL,
-soccer, UFC). Next steps:
-- **Live-updating scoreboard**: `/matches/<sport>-*`'s scoreboard itself still
-  doesn't poll like the home cards do — it's a snapshot at request time. (Chat
-  and rating pulses on the same page now do poll, as of 10/06/2026 — see "Done"
-  above — but that's additive and doesn't touch the scoreboard/clock.)
-- **Expand to the remaining sports**: tennis, F1, NHL, and cricket stay mock —
-  NHL would be the next easy win (same ESPN keyless-API family as NFL/soccer/UFC).
+The home "Live now" section is now wired to six real sports (MLB, NBA, NFL,
+soccer, UFC, NHL), and `/matches/<sport>-*`'s scoreboard now polls too (see
+"Done" above, 10/13/2026). Next steps:
+- **Expand to the remaining sports**: tennis, F1, and cricket stay mock — none
+  of the three have a known keyless/free live-data source the way the ESPN
+  site API covers everything else.
 - **Unify the detail page systems**: `/browse`/`/matches/[id]`/`/events/[id]` still
   use mock data only. Decide whether to keep the parallel mock system indefinitely or
   migrate home/browse to real games (tradeoff: real data vs. curated mock experience).

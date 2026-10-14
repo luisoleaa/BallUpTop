@@ -30,6 +30,11 @@ const POLL_MS = 5000;
 interface Props {
   matchId: string;
   initialStatus: Exclude<MatchStatus, "upcoming">; // caller hides the panel entirely for "upcoming"
+  // The parent's own view of match status (from its separate 30s scoreboard
+  // poll). Lets this panel catch up immediately if that poll reports "final"
+  // before this panel's own 5s poll does, instead of showing a live
+  // pulse/chat UI under an already-final scoreboard for up to one tick.
+  matchStatus: MatchStatus;
   initialMessages: LiveChatMessage[];
   initialPulses: LiveRatingPulse[];
 }
@@ -99,12 +104,22 @@ function makeTempId(): string {
 export function LiveActivityPanel({
   matchId,
   initialStatus,
+  matchStatus,
   initialMessages,
   initialPulses,
 }: Props) {
   const { user, showToast } = useApp();
   const router = useRouter();
   const [status, setStatus] = useState<MatchStatus>(initialStatus);
+  // One-way ratchet toward "final" only: if the parent's own poll reports
+  // final before this panel's next 5s tick does, adopt it early rather than
+  // waiting. Never moves status the other way -- this panel's own poll
+  // (resolveMatchStatus, server-verified) stays authoritative for that.
+  const [prevMatchStatus, setPrevMatchStatus] = useState(matchStatus);
+  if (matchStatus !== prevMatchStatus) {
+    setPrevMatchStatus(matchStatus);
+    if (matchStatus === "final" && status !== "final") setStatus("final");
+  }
   const [messagesById, setMessagesById] = useState<
     Record<string, LiveChatMessage>
   >(() => byId(initialMessages));

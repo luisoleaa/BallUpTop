@@ -170,7 +170,7 @@ describe("live match ids", () => {
   it("rejects mock and malformed ids", () => {
     expect(parseLiveMatchId("m4")).toBeNull();
     expect(parseLiveMatchId("mlb-")).toBeNull();
-    expect(parseLiveMatchId("nhl-5")).toBeNull();
+    expect(parseLiveMatchId("cricket-5")).toBeNull();
   });
 });
 

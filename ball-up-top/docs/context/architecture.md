@@ -13,15 +13,17 @@ on purpose:
   profiles) are wired to these mock matches — see below — only the game/schedule data
   itself is still static.
 - The home's "Live now" section is real data across **MLB, NBA, NFL, soccer (top 5
-  European leagues + Champions League), and UFC** in one combined feed, polled
+  European leagues + Champions League), UFC, and NHL** in one combined feed, polled
   client-side every 30s from `/api/live`. Code lives in `routes/live/`: `live.ts`
   (shared `liveGame` type, id helpers, `selectLiveNow` — round-robins live games
   across sports so one sport's many simultaneous games can't monopolize the slots,
   `toMatch`, `toSide` — pure, safe for client imports), `mlb_live.ts` (MLB Stats
-  API), `nba_live.ts`/`nfl_live.ts` (ESPN's keyless site API — `cdn.nba.com` 403s
-  server requests but `site.api.espn.com` doesn't; ESPN is unofficial like the logo
-  CDN), `soccer_live.ts` (same ESPN API, fanned out across 6 league codes
-  internally — `eng.1`/`esp.1`/`ger.1`/`ita.1`/`fra.1`/`uefa.champions` — but looks
+  API), `nba_live.ts`/`nfl_live.ts`/`nhl_live.ts` (ESPN's keyless site API —
+  `cdn.nba.com` 403s server requests but `site.api.espn.com` doesn't; ESPN is
+  unofficial like the logo CDN; `nhl_live.ts` has no ESPN-CDN logo tier wired yet,
+  so its crests fall back to the colored-monogram tier), `soccer_live.ts` (same
+  ESPN API, fanned out across 6 league codes internally —
+  `eng.1`/`esp.1`/`ger.1`/`ita.1`/`fra.1`/`uefa.champions` — but looks
   like one provider to `all_live.ts`), `ufc_live.ts` (same ESPN API; one ESPN
   "event" is a fight card bundling multiple "competitions" — individual fights —
   so this module flattens each card into one `liveGame` per fight, keyed by
@@ -41,6 +43,16 @@ on purpose:
   sport+abbreviation; `Side.logoUrl` (soccer, where ESPN hands back the crest URL
   directly) and `Side.flag` (UFC, mapped from ESPN's country code to the handful
   FlagBadge supports) are the other two tiers of the same fallback chain.
+  `/matches/[id]` itself also polls for a live real match (every 30s, via
+  `/api/matches/[id]/live`, same visibility-aware pattern as the home feed) so
+  its scoreboard doesn't go stale — separate from, and additive to,
+  `LiveActivityPanel`'s own 5s chat/pulse poll described below. NBA/NFL/NHL's
+  `getLive*Games()` query two single ET-date scoreboard requests
+  (yesterday + today, merged/deduped by event id) rather than one
+  `dates=<start>-<end>` range request — ESPN's range-query syntax started
+  400ing on this endpoint family at some point (its `/mma/ufc` sibling still
+  accepts it), silently emptying the NBA/NFL feed under `allSettled` until this
+  was caught and fixed (10/13/2026).
 - A separate, fully real NBA/NFL/MLB historical game archive
   (`nba_games`/`nfl_games`/`mlb_games`, backfilled from balldontlie.io — see
   `scripts/`), searchable at `/search`.
