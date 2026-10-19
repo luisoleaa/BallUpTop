@@ -43,3 +43,30 @@ export async function saveRatingAction(matchId: string, log: LogInput) {
   revalidatePath(`/matches/${matchId}`);
   revalidatePath("/diary");
 }
+
+// Deletes the caller's own rating for a match. RLS already permits own-row
+// delete on `ratings` (see supabase/migrations/README.md's baseline note),
+// so no new SQL is needed for this.
+export async function deleteRatingAction(matchId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect(
+      `/login?reason=rate&from=${encodeURIComponent(`/matches/${matchId}`)}`,
+    );
+  }
+
+  const { error } = await supabase
+    .from("ratings")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("match_id", matchId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/matches/${matchId}`);
+  revalidatePath("/diary");
+}

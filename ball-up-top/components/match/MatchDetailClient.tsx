@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/app-store";
-import { saveRatingAction } from "@/lib/actions/ratings";
+import { saveRatingAction, deleteRatingAction } from "@/lib/actions/ratings";
 import { addToWatchlistAction } from "@/lib/actions/lists";
 import { timeAgo } from "@/lib/time-ago";
 import type { MatchReview } from "@/lib/queries/ratings";
@@ -95,6 +95,7 @@ export function MatchDetailClient({
   }
   const [rating, setRating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [onWatchlist, setOnWatchlist] = useState(
     listIdsContainingMatch.length > 0,
@@ -238,6 +239,19 @@ export function MatchDetailClient({
       await refreshRatings();
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteRatingAction(match.id);
+      setRating(false);
+      showToast("Removed from your diary");
+      router.refresh();
+      await refreshRatings();
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -763,8 +777,10 @@ export function MatchDetailClient({
           match={match}
           existing={existingLog}
           saving={saving}
+          deleting={deleting}
           onClose={() => setRating(false)}
           onSave={handleSave}
+          onDelete={existingLog ? handleDelete : undefined}
         />
       )}
 

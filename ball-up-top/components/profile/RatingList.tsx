@@ -7,6 +7,7 @@ import type { Match, Rating } from "@/lib/types";
 import type { ReactNode } from "react";
 import { Avatar } from "../ui/Avatar";
 import { Crest } from "../ui/Crest";
+import { Icon } from "../ui/Icon";
 import { RatingValue } from "../ui/RatingValue";
 import { SportChip } from "../ui/SportChip";
 
@@ -20,6 +21,7 @@ export function RatingList({
   matches,
   emptyState,
   authorByRatingId,
+  onDelete,
 }: {
   ratings: Rating[];
   matches: Match[];
@@ -28,6 +30,9 @@ export function RatingList({
   // span multiple users -- /diary and /users/[id] never pass this, since
   // every row there already belongs to one known profile).
   authorByRatingId?: Map<string, RatingAuthor>;
+  // When set, each row gets an inline remove button (only /diary passes
+  // this -- a profile/activity row isn't the viewer's own rating to delete).
+  onDelete?: (matchId: string) => void;
 }) {
   const rated = ratings
     .map((r) => ({ r, match: matches.find((m) => m.id === r.matchId) }))
@@ -72,49 +77,70 @@ export function RatingList({
                 </span>
               </Link>
             )}
-            <Link
-              href={`/matches/${m.id}`}
-              style={{
-                textAlign: "left",
-                display: "flex",
-                gap: 16,
-                textDecoration: "none",
-              }}
-            >
-              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                <Crest side={m.a} size={38} />
-                <Crest side={m.b} size={38} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span
-                    style={{
-                      fontWeight: 700,
-                      fontSize: 16,
-                      color: "var(--text)",
-                    }}
-                  >
-                    {m.a.abbr} v {m.b.abbr}
-                  </span>
-                  <SportChip sport={m.sport} muted />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Link
+                href={`/matches/${m.id}`}
+                style={{
+                  textAlign: "left",
+                  display: "flex",
+                  gap: 16,
+                  flex: 1,
+                  minWidth: 0,
+                  textDecoration: "none",
+                }}
+              >
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <Crest side={m.a} size={38} />
+                  <Crest side={m.b} size={38} />
                 </div>
-                {r.review && (
-                  <p
-                    style={{
-                      fontSize: 14,
-                      color: "var(--text-muted)",
-                      margin: "6px 0 0",
-                      lineHeight: 1.5,
-                    }}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 10 }}
                   >
-                    {r.review}
-                  </p>
-                )}
-              </div>
-              <div style={{ flexShrink: 0 }}>
-                <RatingValue value={r.rating} size={16} />
-              </div>
-            </Link>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 16,
+                        color: "var(--text)",
+                      }}
+                    >
+                      {m.a.abbr} v {m.b.abbr}
+                    </span>
+                    <SportChip sport={m.sport} muted />
+                  </div>
+                  {r.review && (
+                    <p
+                      style={{
+                        fontSize: 14,
+                        color: "var(--text-muted)",
+                        margin: "6px 0 0",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {r.review}
+                    </p>
+                  )}
+                </div>
+                <div style={{ flexShrink: 0 }}>
+                  <RatingValue value={r.rating} size={16} />
+                </div>
+              </Link>
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(m.id)}
+                  aria-label="Remove from diary"
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    padding: 6,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon name="trash" size={15} stroke="var(--text-faint)" />
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
