@@ -103,6 +103,37 @@ scores, search_count, postseason, home/visitor team abbreviations).
   signup via a `handle_new_user()` trigger on `auth.users` insert (live; see the
   schema note at the bottom of this file). Edited at `/settings`
   (`lib/actions/profile.ts`, which upserts so a pre-trigger user still works).
+  A `created_at` column (migration `20261018000001`, backfilled from
+  `auth.users.created_at`) backs the public profile page below — **not yet
+  applied to the live project as of 2026-10-18**, see this file's schema
+  note at the bottom.
+- **Public profiles**: `app/users/[id]/page.tsx` + `components/profile/ProfileClient.tsx`
+  — anyone's display name, member-since date, aggregate stats (logged count, avg
+  rating given, favorite sport — computed client-side from `getUserRatings`, no
+  dedicated stats query), and their public ratings via the shared
+  `components/profile/RatingList.tsx` (also used by `/diary` and `/activity`).
+  `components/ui/Avatar.tsx` is the colored-monogram avatar (initials, color
+  deterministically hashed from the user id into `lib/data.ts`'s `SPORTS` palette
+  — no image upload, by design).
+- **Follows + activity feed**: `public.follows` (migration `20261018000002`, not
+  yet applied) — composite PK `(follower_id, followee_id)`, RLS public read,
+  insert/delete own row only, a check constraint blocking self-follow.
+  `lib/queries/follows.ts` / `lib/actions/follows.ts`. `/activity`
+  (`app/activity/page.tsx`) shows recent ratings from everyone the signed-in user
+  follows, via `getActivityFeed()` (manual `follows` → `ratings` → `profiles`
+  merge, same no-FK-embed pattern as `getMatchReviews`).
+- **Lists + watchlist**: `public.lists` / `public.list_items` (migration
+  `20261018000003`, not yet applied) — RLS public read, own-row write (`list_items`
+  ownership enforced via a subquery back to `lists.user_id`, since it has no
+  `user_id` column of its own). `match_id` stays plain text, no FK, same
+  convention as `ratings.match_id`. The **watchlist is a system-managed list**
+  (`is_watchlist` flag, auto-created lazily via `addToWatchlistAction` on first
+  use) rather than a separate table — this is what the upcoming-match CTA in
+  `MatchDetailClient.tsx` now actually does (previously a "Set a reminder" label
+  with no persistence at all, identical handler to "Rate this match").
+  `lib/queries/lists.ts` / `lib/actions/lists.ts`,
+  `components/lists/{ListsClient,ListDetailClient,AddToListModal,CreateListModal}.tsx`,
+  `/lists` + `/lists/[id]`.
 - **Account deletion**: `/settings`'s danger zone calls a `delete_own_account()`
   `security definer` RPC (same pattern as `increment_game_search_count` below) —
   no service-role key needed for this feature specifically (see the "Live
@@ -249,3 +280,14 @@ rows stay `NULL`).
 Future schema changes: add a file to `supabase/migrations/` **and** apply it to the
 live project (by hand in the SQL editor, or via tooling). There's still no CI that
 runs these automatically.
+
+**Pending as of 2026-10-18**: `20261018000001` (`profiles.created_at`),
+`20261018000002` (`follows`), and `20261018000003` (`lists`/`list_items`) are
+written and committed but **not yet applied to the live project** — a Supabase
+management-API connector was available this session but failed auth against
+this specific project every time it was tried (`password authentication failed
+for user "postgres"`, then `Invalid or expired requestState` on retry),
+unrelated to the app's own anon-key client, which worked normally all session.
+Public profiles, follows, and lists are all non-functional until these three
+run — same "pending manual SQL" pattern as 08/31–09/06, see the Obsidian
+context doc's 10/18/2026 entry for the full list of what each unblocks.
