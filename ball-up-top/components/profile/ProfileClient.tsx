@@ -149,7 +149,7 @@ export function ProfileClient({
       >
         {[
           ["Logged", loggedCount],
-          ["Avg given", avg ? avg.toFixed(1) : "–"],
+          ["Avg given", ratings.length ? avg.toFixed(1) : "–"],
           [
             "Favorite sport",
             favSport ? SPORTS[favSport as keyof typeof SPORTS].name : "–",

@@ -209,7 +209,7 @@ export function AddToListModal({
       {creating && (
         <CreateListModal
           onClose={() => setCreating(false)}
-          onCreated={async (id) => {
+          onCreated={async (id, title) => {
             setCreating(false);
             const result = await addToListAction(id, matchId);
             if (!("error" in result)) {
@@ -218,7 +218,7 @@ export function AddToListModal({
                 {
                   id,
                   userId: "",
-                  title: "New list",
+                  title,
                   description: null,
                   isWatchlist: false,
                   createdAt: new Date().toISOString(),

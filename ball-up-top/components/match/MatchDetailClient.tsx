@@ -46,6 +46,7 @@ interface Props {
   initialLivePulses: LiveRatingPulse[];
   userLists: MatchList[];
   listIdsContainingMatch: string[];
+  isOnWatchlist: boolean;
 }
 
 // Common shape for rendering real reviews (from the ratings table) above the
@@ -75,6 +76,7 @@ export function MatchDetailClient({
   initialLivePulses,
   userLists,
   listIdsContainingMatch,
+  isOnWatchlist,
 }: Props) {
   const { user, showToast, refreshRatings, hideScores } = useApp();
   const router = useRouter();
@@ -97,9 +99,7 @@ export function MatchDetailClient({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [revealed, setRevealed] = useState(false);
-  const [onWatchlist, setOnWatchlist] = useState(
-    listIdsContainingMatch.length > 0,
-  );
+  const [onWatchlist, setOnWatchlist] = useState(isOnWatchlist);
   const userRating = initialRating;
 
   // Keeps the scoreboard itself live for real (non-mock) matches -- separate
@@ -250,6 +250,8 @@ export function MatchDetailClient({
       showToast("Removed from your diary");
       router.refresh();
       await refreshRatings();
+    } catch {
+      showToast("Couldn't remove this rating. Try again.");
     } finally {
       setDeleting(false);
     }

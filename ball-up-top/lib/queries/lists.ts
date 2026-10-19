@@ -111,6 +111,25 @@ export async function getWatchlist(userId: string): Promise<MatchList | null> {
   return list;
 }
 
+// Specifically whether this match is in the user's Watchlist -- distinct
+// from getListIdsContainingMatch below, which checks membership in ANY of
+// the user's lists and isn't precise enough to drive the watchlist CTA.
+export async function isMatchOnWatchlist(
+  userId: string,
+  matchId: string,
+): Promise<boolean> {
+  const watchlist = await getWatchlist(userId);
+  if (!watchlist) return false;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("list_items")
+    .select("match_id")
+    .eq("list_id", watchlist.id)
+    .eq("match_id", matchId)
+    .maybeSingle();
+  return Boolean(data);
+}
+
 // Which of a user's lists already contain this match -- backs the
 // "Add to list" picker's checked state.
 export async function getListIdsContainingMatch(

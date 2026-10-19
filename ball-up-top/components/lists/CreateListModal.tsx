@@ -13,7 +13,7 @@ export function CreateListModal({
   onCreated,
 }: {
   onClose: () => void;
-  onCreated: (listId: string) => void;
+  onCreated: (listId: string, title: string) => void;
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -39,7 +39,7 @@ export function CreateListModal({
       setError(result.error);
       return;
     }
-    onCreated(result.id);
+    onCreated(result.id, title.trim());
   };
 
   return (

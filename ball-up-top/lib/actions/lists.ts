@@ -74,8 +74,10 @@ export async function deleteListAction(listId: string): Promise<ActionResult> {
     .from("lists")
     .select("is_watchlist")
     .eq("id", listId)
+    .eq("user_id", user.id)
     .maybeSingle();
-  if (list?.is_watchlist) return { error: "Your watchlist can't be deleted." };
+  if (!list) return { error: "List not found." };
+  if (list.is_watchlist) return { error: "Your watchlist can't be deleted." };
 
   const { error } = await supabase
     .from("lists")

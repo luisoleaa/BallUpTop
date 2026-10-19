@@ -11,6 +11,7 @@ import {
 import {
   getListsForUser,
   getListIdsContainingMatch,
+  isMatchOnWatchlist,
 } from "@/lib/queries/lists";
 import { MatchDetailClient } from "@/components/match/MatchDetailClient";
 
@@ -63,6 +64,7 @@ export default async function MatchPage({
     [initialLiveMessages, initialLivePulses],
     userLists,
     listIdsContainingMatch,
+    isOnWatchlist,
   ] = await Promise.all([
     user ? getUserRatingForMatch(user.id, id) : Promise.resolve(null),
     getMatchReviews(id, user?.id),
@@ -76,6 +78,7 @@ export default async function MatchPage({
     user
       ? getListIdsContainingMatch(user.id, id)
       : Promise.resolve(new Set<string>()),
+    user ? isMatchOnWatchlist(user.id, id) : Promise.resolve(false),
   ]);
 
   return (
@@ -89,6 +92,7 @@ export default async function MatchPage({
       initialLivePulses={initialLivePulses}
       userLists={userLists}
       listIdsContainingMatch={[...listIdsContainingMatch]}
+      isOnWatchlist={isOnWatchlist}
     />
   );
 }

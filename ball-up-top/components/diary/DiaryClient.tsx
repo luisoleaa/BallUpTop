@@ -70,9 +70,13 @@ export function DiaryClient({
   }, [ratings, matchById, sport, sortBy]);
 
   const handleDelete = async (matchId: string) => {
-    await deleteRatingAction(matchId);
-    showToast("Removed from your diary");
-    router.refresh();
+    try {
+      await deleteRatingAction(matchId);
+      showToast("Removed from your diary");
+      router.refresh();
+    } catch {
+      showToast("Couldn't remove this rating. Try again.");
+    }
   };
 
   return (
@@ -104,7 +108,7 @@ export function DiaryClient({
       >
         {[
           ["Logged", loggedCount],
-          ["Avg rating", avg ? avg.toFixed(1) : "–"],
+          ["Avg rating", ratings.length ? avg.toFixed(1) : "–"],
           ["This year", thisYear],
         ].map(([k, v]) => (
           <Card key={String(k)} padding="18px 16px">

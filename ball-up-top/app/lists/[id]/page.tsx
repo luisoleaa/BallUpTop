@@ -3,7 +3,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getList, getListItems } from "@/lib/queries/lists";
-import { getAnyMatch } from "@/lib/queries/matches";
+import { getMatch } from "@/lib/data";
+import { getRealMatchesForIds } from "@/lib/queries/matches";
 import { getUser } from "@/lib/supabase/server";
 import type { Match } from "@/lib/types";
 import { ListDetailClient } from "@/components/lists/ListDetailClient";
@@ -28,11 +29,24 @@ export default async function ListPage({
   if (!list) notFound();
 
   const [listItems, viewer] = await Promise.all([getListItems(id), getUser()]);
-  const matches = await Promise.all(
-    listItems.map((i) => getAnyMatch(i.matchId)),
-  );
+
+  // Batch real (non-mock) ids through one getRealMatchesForIds call per
+  // sport provider, same pattern /users/[id] and /activity already use,
+  // instead of one getAnyMatch round-trip per item.
+  const realIds = listItems
+    .map((i) => i.matchId)
+    .filter((mid) => !getMatch(mid));
+  const realMatches = await getRealMatchesForIds(realIds);
+  const matchById = new Map<string, Match>([
+    ...realMatches.map((m): [string, Match] => [m.id, m]),
+    ...listItems.flatMap((i): [string, Match][] => {
+      const mock = getMatch(i.matchId);
+      return mock ? [[i.matchId, mock]] : [];
+    }),
+  ]);
+
   const items = listItems
-    .map((i, idx) => ({ match: matches[idx], addedAt: i.addedAt }))
+    .map((i) => ({ match: matchById.get(i.matchId), addedAt: i.addedAt }))
     .filter((x): x is { match: Match; addedAt: string } => Boolean(x.match));
 
   return (
