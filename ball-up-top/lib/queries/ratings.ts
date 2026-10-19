@@ -60,6 +60,7 @@ export async function getUserRatings(userId: string): Promise<Rating[]> {
 
 export interface MatchReview {
   id: string;
+  userId: string;
   userName: string;
   rating: number;
   review: string;
@@ -106,6 +107,7 @@ export async function getMatchReviews(
 
   return rows.map((r) => ({
     id: r.id as string,
+    userId: r.user_id as string,
     userName: nameById.get(r.user_id as string) ?? "Fan",
     rating: Number(r.rating),
     review: r.review as string,
@@ -120,6 +122,7 @@ export async function getMatchReviews(
 export interface TopReview {
   id: string;
   matchId: string;
+  userId: string;
   userName: string;
   rating: number;
   review: string;
@@ -158,6 +161,7 @@ export async function getTopRealReviews(
     .map((r) => ({
       id: r.id as string,
       matchId: r.match_id as string,
+      userId: r.user_id as string,
       userName: nameById.get(r.user_id as string) ?? "Fan",
       rating: Number(r.rating),
       review: r.review as string,

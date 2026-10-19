@@ -3,6 +3,7 @@
 // Client half of the match detail page: scoreboard, fan reviews, rating
 // distribution, and the user's own rating or a CTA to open RateModal.
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/app-store";
 import { saveRatingAction } from "@/lib/actions/ratings";
@@ -16,6 +17,7 @@ import type {
   Rating,
   SeedReview,
 } from "@/lib/types";
+import { Avatar } from "../ui/Avatar";
 import { BackLink } from "../ui/BackLink";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -51,8 +53,9 @@ interface DisplayReview {
   tags: string[];
   text: string;
   time: string;
-  // Only set for real reviews -- mock seed content has no rating row to act against.
+  // Only set for real reviews -- mock seed content has no rating row/profile to act against.
   ratingId?: string;
+  userId?: string;
   likeCount?: number;
   likedByMe?: boolean;
 }
@@ -165,6 +168,7 @@ export function MatchDetailClient({
       text: r.review,
       time: timeAgo(r.createdAt),
       ratingId: r.id,
+      userId: r.userId,
       likeCount: r.likeCount,
       likedByMe: r.likedByMe,
     })),
@@ -410,32 +414,30 @@ export function MatchDetailClient({
                     marginBottom: 9,
                   }}
                 >
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 99,
-                      background: "var(--surface-2)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontWeight: 700,
-                      fontSize: 12,
-                      color: "var(--text-muted)",
-                    }}
-                  >
-                    {r.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <span
-                    style={{
-                      fontWeight: 700,
-                      fontSize: 14,
-                      color: "var(--text)",
-                    }}
-                  >
-                    {r.name}
-                  </span>
+                  <Avatar name={r.name} seed={r.userId ?? r.name} size={32} />
+                  {r.userId ? (
+                    <Link
+                      href={`/users/${r.userId}`}
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                        color: "var(--text)",
+                        textDecoration: "none",
+                      }}
+                    >
+                      {r.name}
+                    </Link>
+                  ) : (
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                        color: "var(--text)",
+                      }}
+                    >
+                      {r.name}
+                    </span>
+                  )}
                   {r.live && (
                     <span
                       style={{

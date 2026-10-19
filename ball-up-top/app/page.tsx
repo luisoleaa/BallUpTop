@@ -37,6 +37,7 @@ async function getPopularReviews(limit: number): Promise<PopularReview[]> {
         key: r.id,
         matchId: r.matchId,
         user: r.userName,
+        userId: r.userId,
         rating: r.rating,
         text: r.review,
         likes: r.likeCount,
