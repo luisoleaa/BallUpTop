@@ -4,12 +4,14 @@
 // stats, and their logged ratings -- all public per ratings/profiles RLS.
 // Mirrors DiaryClient's stat-tile markup/pattern but for any user id, not
 // just the signed-in one.
+import Link from "next/link";
 import { MATCHES, SPORTS } from "@/lib/data";
 import type { Match, Rating } from "@/lib/types";
 import type { Profile } from "@/lib/queries/profiles";
 import { Avatar } from "../ui/Avatar";
 import { Card } from "../ui/Card";
 import { EmptyState } from "../ui/EmptyState";
+import { FollowButton } from "./FollowButton";
 import { RatingList } from "./RatingList";
 
 function memberSince(createdAt: string): string {
@@ -41,10 +43,16 @@ export function ProfileClient({
   profile,
   ratings,
   realMatches,
+  viewerId,
+  isFollowing,
+  followCounts,
 }: {
   profile: Profile;
   ratings: Rating[];
   realMatches: Match[];
+  viewerId: string | null;
+  isFollowing: boolean;
+  followCounts: { followers: number; following: number };
 }) {
   const allMatches: Match[] = [...MATCHES, ...realMatches];
   const loggedCount = ratings.filter((r) =>
@@ -68,7 +76,7 @@ export function ProfileClient({
         }}
       >
         <Avatar name={profile.displayName} seed={profile.id} size={52} />
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <h1
             style={{
               fontSize: 28,
@@ -91,6 +99,40 @@ export function ProfileClient({
             Member since {memberSince(profile.createdAt)}
           </p>
         </div>
+        {viewerId && viewerId !== profile.id && (
+          <FollowButton targetId={profile.id} initialFollowing={isFollowing} />
+        )}
+      </div>
+
+      <div style={{ display: "flex", gap: 14, marginTop: 10 }}>
+        <Link
+          href={`/users/${profile.id}/followers`}
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--text-muted)",
+            textDecoration: "none",
+          }}
+        >
+          <strong style={{ color: "var(--text)" }}>
+            {followCounts.followers}
+          </strong>{" "}
+          followers
+        </Link>
+        <Link
+          href={`/users/${profile.id}/following`}
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--text-muted)",
+            textDecoration: "none",
+          }}
+        >
+          <strong style={{ color: "var(--text)" }}>
+            {followCounts.following}
+          </strong>{" "}
+          following
+        </Link>
       </div>
 
       <div

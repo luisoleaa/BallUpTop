@@ -31,7 +31,13 @@ function LoginForm() {
   // reached via a hand-crafted/malformed login URL, not a real app flow.
   const redirectTo =
     from ??
-    (reason === "diary" ? "/diary" : reason === "settings" ? "/settings" : "/");
+    (reason === "diary"
+      ? "/diary"
+      : reason === "settings"
+        ? "/settings"
+        : reason === "activity"
+          ? "/activity"
+          : "/");
 
   if (mode === "up" && state.checkEmail) {
     return (
@@ -90,7 +96,9 @@ function LoginForm() {
               ? "Sign in to chat and rate matches live."
               : reason === "settings"
                 ? "Sign in to manage your account."
-                : "Sign in to see your diary."}
+                : reason === "activity"
+                  ? "Sign in to see what people you follow are logging."
+                  : "Sign in to see your diary."}
         </div>
       )}
       <h1
