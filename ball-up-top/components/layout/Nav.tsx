@@ -19,7 +19,12 @@ export function Nav() {
     ["/browse", "Browse"],
     ["/search", "Search"],
     ["/diary", "Diary"],
-    ...(user ? ([["/activity", "Activity"]] as [string, string][]) : []),
+    ...(user
+      ? ([
+          ["/activity", "Activity"],
+          ["/lists", "Lists"],
+        ] as [string, string][])
+      : []),
   ];
 
   const handleSignOut = async () => {

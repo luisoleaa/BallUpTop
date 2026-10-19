@@ -7,8 +7,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/app-store";
 import { saveRatingAction } from "@/lib/actions/ratings";
+import { addToWatchlistAction } from "@/lib/actions/lists";
 import { timeAgo } from "@/lib/time-ago";
 import type { MatchReview } from "@/lib/queries/ratings";
+import type { MatchList } from "@/lib/queries/lists";
 import { parseLiveMatchId } from "@/routes/live/live";
 import type {
   LiveChatMessage,
@@ -25,6 +27,7 @@ import { Crest } from "../ui/Crest";
 import { EmptyState } from "../ui/EmptyState";
 import { Icon } from "../ui/Icon";
 import { Label } from "../ui/Label";
+import { AddToListModal } from "../lists/AddToListModal";
 import { LiveActivityPanel } from "./LiveActivityPanel";
 import { RateModal } from "./RateModal";
 import { ReviewActions } from "./ReviewActions";
@@ -41,6 +44,8 @@ interface Props {
   initialRating: Rating | null;
   initialLiveMessages: LiveChatMessage[];
   initialLivePulses: LiveRatingPulse[];
+  userLists: MatchList[];
+  listIdsContainingMatch: string[];
 }
 
 // Common shape for rendering real reviews (from the ratings table) above the
@@ -68,9 +73,13 @@ export function MatchDetailClient({
   initialRating,
   initialLiveMessages,
   initialLivePulses,
+  userLists,
+  listIdsContainingMatch,
 }: Props) {
   const { user, showToast, refreshRatings, hideScores } = useApp();
   const router = useRouter();
+  const [addingToList, setAddingToList] = useState(false);
+  const [watchlisting, setWatchlisting] = useState(false);
   const [match, setMatch] = useState(initialMatch);
   // Re-syncs `match` whenever the server hands down a new `initialMatch`
   // (e.g. handleSave's router.refresh() below) -- without this, a fresh
@@ -87,6 +96,9 @@ export function MatchDetailClient({
   const [rating, setRating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [onWatchlist, setOnWatchlist] = useState(
+    listIdsContainingMatch.length > 0,
+  );
   const userRating = initialRating;
 
   // Keeps the scoreboard itself live for real (non-mock) matches -- separate
@@ -191,6 +203,24 @@ export function MatchDetailClient({
       return;
     }
     setRating(true);
+  };
+
+  const requestWatchlist = async () => {
+    if (!user) {
+      router.push(
+        `/login?reason=rate&from=${encodeURIComponent(`/matches/${match.id}`)}`,
+      );
+      return;
+    }
+    setWatchlisting(true);
+    const result = await addToWatchlistAction(match.id);
+    setWatchlisting(false);
+    if ("error" in result) {
+      showToast(result.error);
+      return;
+    }
+    setOnWatchlist(true);
+    showToast("Added to your watchlist");
   };
 
   const handleSave = async (log: {
@@ -634,6 +664,43 @@ export function MatchDetailClient({
                 </p>
               )}
             </Card>
+          ) : match.status === "upcoming" ? (
+            <Card padding={20}>
+              <Button
+                fullWidth
+                size="lg"
+                variant={onWatchlist ? "secondary" : "primary"}
+                disabled={watchlisting || onWatchlist}
+                onClick={requestWatchlist}
+                icon={
+                  onWatchlist ? (
+                    <Icon name="check" size={19} stroke="var(--text)" />
+                  ) : (
+                    <Icon name="plus" size={19} stroke="var(--accent-text)" />
+                  )
+                }
+              >
+                {onWatchlist
+                  ? "On your watchlist"
+                  : watchlisting
+                    ? "Adding…"
+                    : "Add to watchlist"}
+              </Button>
+              {!user && (
+                <p
+                  style={{
+                    fontSize: 12.5,
+                    color: "var(--text-faint)",
+                    textAlign: "center",
+                    margin: "12px 0 0",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  You&rsquo;ll be asked to sign in first — watchlisting requires
+                  an account.
+                </p>
+              )}
+            </Card>
           ) : (
             <Card padding={20}>
               <Button
@@ -644,9 +711,7 @@ export function MatchDetailClient({
                   <Icon name="plus" size={19} stroke="var(--accent-text)" />
                 }
               >
-                {match.status === "upcoming"
-                  ? "Set a reminder"
-                  : "Rate this match"}
+                Rate this match
               </Button>
               {!user && (
                 <p
@@ -664,6 +729,21 @@ export function MatchDetailClient({
               )}
             </Card>
           )}
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              user
+                ? setAddingToList(true)
+                : router.push(
+                    `/login?reason=rate&from=${encodeURIComponent(`/matches/${match.id}`)}`,
+                  )
+            }
+            icon={<Icon name="plus" size={15} stroke="var(--text)" />}
+          >
+            Add to list
+          </Button>
 
           {match.status !== "upcoming" && (
             <LiveActivityPanel
@@ -685,6 +765,15 @@ export function MatchDetailClient({
           saving={saving}
           onClose={() => setRating(false)}
           onSave={handleSave}
+        />
+      )}
+
+      {addingToList && (
+        <AddToListModal
+          matchId={match.id}
+          lists={userLists}
+          initialContainingListIds={listIdsContainingMatch}
+          onClose={() => setAddingToList(false)}
         />
       )}
     </main>

@@ -7,6 +7,7 @@ import { getProfileById } from "@/lib/queries/profiles";
 import { getUserRatings } from "@/lib/queries/ratings";
 import { getRealMatchesForIds } from "@/lib/queries/matches";
 import { getFollowCounts, isFollowing } from "@/lib/queries/follows";
+import { getListsForUser } from "@/lib/queries/lists";
 import { getUser } from "@/lib/supabase/server";
 import { ProfileClient } from "@/components/profile/ProfileClient";
 
@@ -31,10 +32,11 @@ export default async function UserProfilePage({
   if (!profile) notFound();
 
   const viewer = await getUser();
-  const [ratings, followCounts, viewerIsFollowing] = await Promise.all([
+  const [ratings, followCounts, viewerIsFollowing, lists] = await Promise.all([
     getUserRatings(id),
     getFollowCounts(id),
     viewer ? isFollowing(viewer.id, id) : Promise.resolve(false),
+    getListsForUser(id),
   ]);
   const realMatches = await getRealMatchesForIds(ratings.map((r) => r.matchId));
 
@@ -46,6 +48,7 @@ export default async function UserProfilePage({
       viewerId={viewer?.id ?? null}
       isFollowing={viewerIsFollowing}
       followCounts={followCounts}
+      lists={lists}
     />
   );
 }

@@ -8,6 +8,10 @@ import {
   getLiveChatMessages,
   getLiveRatingPulses,
 } from "@/lib/queries/live-activity";
+import {
+  getListsForUser,
+  getListIdsContainingMatch,
+} from "@/lib/queries/lists";
 import { MatchDetailClient } from "@/components/match/MatchDetailClient";
 
 // No score in the description -- link previews are more "public" than the
@@ -53,17 +57,26 @@ export default async function MatchPage({
   // resolved above), so they run in parallel rather than one-after-another.
   // Live-activity fetch skipped entirely for "upcoming" matches -- no
   // chat/pulses exist yet.
-  const [initialRating, realReviews, [initialLiveMessages, initialLivePulses]] =
-    await Promise.all([
-      user ? getUserRatingForMatch(user.id, id) : Promise.resolve(null),
-      getMatchReviews(id, user?.id),
-      match.status !== "upcoming"
-        ? Promise.all([getLiveChatMessages(id), getLiveRatingPulses(id)])
-        : Promise.resolve([[], []] as [
-            Awaited<ReturnType<typeof getLiveChatMessages>>,
-            Awaited<ReturnType<typeof getLiveRatingPulses>>,
-          ]),
-    ]);
+  const [
+    initialRating,
+    realReviews,
+    [initialLiveMessages, initialLivePulses],
+    userLists,
+    listIdsContainingMatch,
+  ] = await Promise.all([
+    user ? getUserRatingForMatch(user.id, id) : Promise.resolve(null),
+    getMatchReviews(id, user?.id),
+    match.status !== "upcoming"
+      ? Promise.all([getLiveChatMessages(id), getLiveRatingPulses(id)])
+      : Promise.resolve([[], []] as [
+          Awaited<ReturnType<typeof getLiveChatMessages>>,
+          Awaited<ReturnType<typeof getLiveRatingPulses>>,
+        ]),
+    user ? getListsForUser(user.id) : Promise.resolve([]),
+    user
+      ? getListIdsContainingMatch(user.id, id)
+      : Promise.resolve(new Set<string>()),
+  ]);
 
   return (
     <MatchDetailClient
@@ -74,6 +87,8 @@ export default async function MatchPage({
       initialRating={initialRating}
       initialLiveMessages={initialLiveMessages}
       initialLivePulses={initialLivePulses}
+      userLists={userLists}
+      listIdsContainingMatch={[...listIdsContainingMatch]}
     />
   );
 }

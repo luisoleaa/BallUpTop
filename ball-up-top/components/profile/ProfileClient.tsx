@@ -8,9 +8,11 @@ import Link from "next/link";
 import { MATCHES, SPORTS } from "@/lib/data";
 import type { Match, Rating } from "@/lib/types";
 import type { Profile } from "@/lib/queries/profiles";
+import type { MatchList } from "@/lib/queries/lists";
 import { Avatar } from "../ui/Avatar";
 import { Card } from "../ui/Card";
 import { EmptyState } from "../ui/EmptyState";
+import { Label } from "../ui/Label";
 import { FollowButton } from "./FollowButton";
 import { RatingList } from "./RatingList";
 
@@ -46,6 +48,7 @@ export function ProfileClient({
   viewerId,
   isFollowing,
   followCounts,
+  lists,
 }: {
   profile: Profile;
   ratings: Rating[];
@@ -53,6 +56,7 @@ export function ProfileClient({
   viewerId: string | null;
   isFollowing: boolean;
   followCounts: { followers: number; following: number };
+  lists: MatchList[];
 }) {
   const allMatches: Match[] = [...MATCHES, ...realMatches];
   const loggedCount = ratings.filter((r) =>
@@ -175,6 +179,59 @@ export function ProfileClient({
           </Card>
         ))}
       </div>
+
+      {lists.length > 0 && (
+        <div style={{ marginTop: 30 }}>
+          <Label as="h2" variant="section" style={{ marginBottom: 10 }}>
+            Lists
+          </Label>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {lists.map((list) => (
+              <Card
+                key={list.id}
+                href={`/lists/${list.id}`}
+                hoverable
+                padding="14px 14px"
+              >
+                {list.isWatchlist && (
+                  <Label
+                    variant="sub"
+                    color="var(--accent-strong)"
+                    style={{ marginBottom: 4 }}
+                  >
+                    Watchlist
+                  </Label>
+                )}
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 14.5,
+                    color: "var(--text)",
+                  }}
+                >
+                  {list.title}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-faint)",
+                    fontFamily: "var(--font-mono, monospace)",
+                    marginTop: 4,
+                  }}
+                >
+                  {list.itemCount} {list.itemCount === 1 ? "match" : "matches"}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ marginTop: 30 }}>
         <RatingList
