@@ -170,3 +170,40 @@ export async function getTopRealReviews(
     .sort((a, b) => b.likeCount - a.likeCount)
     .slice(0, limit);
 }
+
+// Match ids with at least one review tagged `tag` -- backs /browse's tag
+// filter. Tags only exist on saved ratings rows, not on mock Match data, so
+// "browse by tag" necessarily means "has a review tagged X," not a
+// per-match canonical tag.
+export async function getMatchIdsByTag(tag: string): Promise<Set<string>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ratings")
+    .select("match_id")
+    .contains("tags", [tag]);
+  if (error) throw new Error(error.message);
+  return new Set((data ?? []).map((r) => r.match_id as string));
+}
+
+// Every (tag -> match ids) pairing in one query, for /browse's tag filter
+// pills -- cheaper than one getMatchIdsByTag query per tag in the fixed
+// vocabulary (lib/data.ts's TAGS), fine at the review volume this app has
+// today; revisit if that volume ever makes a full-table scan here matter.
+export async function getTagToMatchIds(): Promise<Map<string, Set<string>>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ratings")
+    .select("match_id,tags")
+    .not("tags", "eq", "{}");
+  if (error) throw new Error(error.message);
+
+  const map = new Map<string, Set<string>>();
+  for (const r of data ?? []) {
+    const matchId = r.match_id as string;
+    for (const tag of (r.tags as string[]) ?? []) {
+      if (!map.has(tag)) map.set(tag, new Set());
+      map.get(tag)!.add(matchId);
+    }
+  }
+  return map;
+}
