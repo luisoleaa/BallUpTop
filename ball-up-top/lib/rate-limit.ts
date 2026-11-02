@@ -1,12 +1,11 @@
 import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { headers } from "next/headers";
+import { redis } from "@/lib/redis";
 
 // Server-only. Throttles auth attempts, mutating Server Actions, and the
 // live-data API routes -- never import this where a client-supplied value
 // could pick the bucket or identifier, only where the caller already knows
 // which bucket applies (e.g. a server-resolved user id).
-const redis = Redis.fromEnv();
 
 const LIMITS = {
   // Sign-in/sign-up, keyed by IP -- no user id exists yet.
