@@ -1,13 +1,19 @@
 "use server";
 
+import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 type ActionResult = { error: string } | { ok: true };
 type CreateResult = { error: string } | { id: string };
 
-async function requireUser(matchId?: string) {
+type RequireUserResult =
+  | { error: string }
+  | { supabase: Awaited<ReturnType<typeof createClient>>; user: User };
+
+async function requireUser(matchId?: string): Promise<RequireUserResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -16,6 +22,12 @@ async function requireUser(matchId?: string) {
     const from = matchId ? `/matches/${matchId}` : "/lists";
     redirect(`/login?reason=rate&from=${encodeURIComponent(from)}`);
   }
+
+  const { success } = await checkRateLimit("action", user.id);
+  if (!success) {
+    return { error: "Too many requests. Try again in a minute." };
+  }
+
   return { supabase, user };
 }
 
@@ -23,7 +35,9 @@ export async function createListAction(
   title: string,
   description: string,
 ): Promise<CreateResult> {
-  const { supabase, user } = await requireUser();
+  const result = await requireUser();
+  if ("error" in result) return result;
+  const { supabase, user } = result;
   const trimmed = title.trim();
   if (!trimmed) return { error: "Give your list a title." };
 
@@ -47,7 +61,9 @@ export async function updateListAction(
   title: string,
   description: string,
 ): Promise<ActionResult> {
-  const { supabase, user } = await requireUser();
+  const result = await requireUser();
+  if ("error" in result) return result;
+  const { supabase, user } = result;
   const trimmed = title.trim();
   if (!trimmed) return { error: "Give your list a title." };
 
@@ -68,7 +84,9 @@ export async function updateListAction(
 }
 
 export async function deleteListAction(listId: string): Promise<ActionResult> {
-  const { supabase, user } = await requireUser();
+  const result = await requireUser();
+  if ("error" in result) return result;
+  const { supabase, user } = result;
 
   const { data: list } = await supabase
     .from("lists")
@@ -94,7 +112,9 @@ export async function addToListAction(
   listId: string,
   matchId: string,
 ): Promise<ActionResult> {
-  const { supabase } = await requireUser(matchId);
+  const result = await requireUser(matchId);
+  if ("error" in result) return result;
+  const { supabase } = result;
 
   const { error } = await supabase
     .from("list_items")
@@ -110,7 +130,9 @@ export async function removeFromListAction(
   listId: string,
   matchId: string,
 ): Promise<ActionResult> {
-  const { supabase } = await requireUser(matchId);
+  const result = await requireUser(matchId);
+  if ("error" in result) return result;
+  const { supabase } = result;
 
   const { error } = await supabase
     .from("list_items")
@@ -129,7 +151,9 @@ export async function removeFromListAction(
 export async function addToWatchlistAction(
   matchId: string,
 ): Promise<ActionResult> {
-  const { supabase, user } = await requireUser(matchId);
+  const result = await requireUser(matchId);
+  if ("error" in result) return result;
+  const { supabase, user } = result;
 
   let { data: watchlist } = await supabase
     .from("lists")

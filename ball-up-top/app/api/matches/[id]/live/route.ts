@@ -1,4 +1,5 @@
 import { getAnyMatch } from "@/lib/queries/matches";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Polled client-side by MatchDetailClient for a real (non-mock) match whose
 // status is "live" -- getAnyMatch already resolves mock ids first and real
@@ -9,6 +10,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+
+  const { success } = await checkRateLimit("live-api", await getClientIp());
+  if (!success) {
+    return Response.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   try {
     const match = await getAnyMatch(id);
     if (!match) return Response.json({ error: "Not found" }, { status: 404 });

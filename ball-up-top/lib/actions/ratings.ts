@@ -5,6 +5,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 interface LogInput {
   rating: number;
@@ -24,6 +25,9 @@ export async function saveRatingAction(matchId: string, log: LogInput) {
       `/login?reason=rate&from=${encodeURIComponent(`/matches/${matchId}`)}`,
     );
   }
+
+  const { success } = await checkRateLimit("action", user.id);
+  if (!success) throw new Error("Too many requests. Try again in a minute.");
 
   const { error } = await supabase.from("ratings").upsert(
     {
@@ -58,6 +62,9 @@ export async function deleteRatingAction(matchId: string) {
       `/login?reason=rate&from=${encodeURIComponent(`/matches/${matchId}`)}`,
     );
   }
+
+  const { success } = await checkRateLimit("action", user.id);
+  if (!success) throw new Error("Too many requests. Try again in a minute.");
 
   const { error } = await supabase
     .from("ratings")

@@ -5,6 +5,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { safeRedirectPath } from "@/lib/safe-redirect";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export interface AuthActionState {
   error?: string;
@@ -21,6 +22,11 @@ export async function authAction(
 
   if (!email || !password) {
     return { error: "Enter an email and password." };
+  }
+
+  const { success } = await checkRateLimit("auth", await getClientIp());
+  if (!success) {
+    return { error: "Too many attempts. Try again in a minute." };
   }
 
   const supabase = await createClient();

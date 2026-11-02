@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function followAction(
   targetId: string,
@@ -15,6 +16,9 @@ export async function followAction(
     redirect(
       `/login?reason=rate&from=${encodeURIComponent(`/users/${targetId}`)}`,
     );
+
+  const { success } = await checkRateLimit("action", user.id);
+  if (!success) return { error: "Too many requests. Try again in a minute." };
 
   if (user.id === targetId) return { error: "You can't follow yourself." };
 
@@ -39,6 +43,9 @@ export async function unfollowAction(
     redirect(
       `/login?reason=rate&from=${encodeURIComponent(`/users/${targetId}`)}`,
     );
+
+  const { success } = await checkRateLimit("action", user.id);
+  if (!success) return { error: "Too many requests. Try again in a minute." };
 
   const { error } = await supabase
     .from("follows")
