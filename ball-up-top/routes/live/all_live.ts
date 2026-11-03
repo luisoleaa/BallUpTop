@@ -91,20 +91,18 @@ export async function getLiveGamesByIds(
   );
   if (parsedById.size === 0) return [];
 
-  const cacheChecks = await Promise.all(
-    [...parsedById.keys()].map(async (id) => {
-      const cached = await redis
-        .get<liveGame>(idCacheKey(id))
-        .catch(() => null);
-      return [id, cached] as const;
-    }),
-  );
-  const hits = cacheChecks
-    .filter((entry): entry is [string, liveGame] => entry[1] != null)
-    .map(([, game]) => game);
-  const missIds = cacheChecks
-    .filter(([, game]) => game == null)
-    .map(([id]) => id);
+  const ids = [...parsedById.keys()];
+  const cached = await redis
+    .mget<(liveGame | null)[]>(...ids.map(idCacheKey))
+    .catch(() => ids.map(() => null));
+
+  const hits: liveGame[] = [];
+  const missIds: string[] = [];
+  ids.forEach((id, i) => {
+    const game = cached[i];
+    if (game != null) hits.push(game);
+    else missIds.push(id);
+  });
 
   if (missIds.length === 0) return hits;
 
@@ -122,13 +120,20 @@ export async function getLiveGamesByIds(
     r.status === "fulfilled" ? r.value : [],
   );
 
-  await Promise.all(
-    fresh.map((game) =>
-      redis
-        .set(idCacheKey(game.id), game, { ex: CACHE_TTL_SECONDS })
-        .catch(() => {}),
-    ),
-  );
+  // Never cache a "Preview" (upcoming) game here -- match-status-cache.ts's
+  // resolveMatchStatus() deliberately never caches "upcoming" status either,
+  // specifically so an upcoming->live transition at kickoff is always a
+  // fresh lookup instead of serving a stale status for up to this cache's
+  // TTL. Caching it here would silently reintroduce that staleness window
+  // one layer down.
+  const cacheable = fresh.filter((game) => game.state !== "Preview");
+  if (cacheable.length > 0) {
+    const pipeline = redis.pipeline();
+    for (const game of cacheable) {
+      pipeline.set(idCacheKey(game.id), game, { ex: CACHE_TTL_SECONDS });
+    }
+    await pipeline.exec().catch(() => {});
+  }
 
   return [...hits, ...fresh];
 }
