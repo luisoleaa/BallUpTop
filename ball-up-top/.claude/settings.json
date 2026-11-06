@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/format-typescript.mjs",
+            "timeout": 30,
+            "statusMessage": "Formatting TypeScript with Prettier"
+          }
+        ]
+      }
+    ]
+  }
+}

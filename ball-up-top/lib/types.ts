@@ -21,6 +21,11 @@ export interface Side {
   abbr: string;
   color: string;
   flag?: string;
+  // Set for real (non-mock) teams: Crest renders the ESPN logo via TeamLogo.
+  logoSport?: "nba" | "nfl" | "mlb";
+  // Explicit crest URL from a provider (e.g. soccer). Checked before logoSport in Crest.
+  logoUrl?: string;
+  // string for F1 positions ("P1") and UFC results ("W"/"L")
   score: number | string | null;
 }
 
@@ -56,6 +61,7 @@ export interface SeedReview {
   tags: string[];
   text: string;
   time: string;
+  likes: number;
 }
 
 export interface UserLog {
@@ -67,6 +73,37 @@ export interface UserLog {
 }
 
 export interface User {
+  id: string;
   name: string;
   email: string;
+}
+
+// DB-backed rating/review row (public.ratings)
+export interface Rating {
+  id: string;
+  matchId: string;
+  rating: number;
+  review: string | null;
+  tags: string[];
+  watchedLive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Live chat message tied to a match (public.live_chat_messages).
+export interface LiveChatMessage {
+  id: string;
+  matchId: string;
+  userName: string;
+  message: string;
+  createdAt: string;
+}
+
+// A single timestamped 1-10 "pulse" (public.live_rating_pulses). Distinct
+// from Rating: many rows per user per match, no review/tags/upsert semantics.
+export interface LiveRatingPulse {
+  id: string;
+  matchId: string;
+  rating: number;
+  createdAt: string;
 }

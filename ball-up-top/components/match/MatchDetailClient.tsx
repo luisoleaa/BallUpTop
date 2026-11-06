@@ -1,0 +1,799 @@
+"use client";
+
+// Client half of the match detail page: scoreboard, fan reviews, rating
+// distribution, and the user's own rating or a CTA to open RateModal.
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useApp } from "@/lib/app-store";
+import { saveRatingAction, deleteRatingAction } from "@/lib/actions/ratings";
+import { addToWatchlistAction } from "@/lib/actions/lists";
+import { timeAgo } from "@/lib/time-ago";
+import type { MatchReview } from "@/lib/queries/ratings";
+import type { MatchList } from "@/lib/queries/lists";
+import { parseLiveMatchId } from "@/routes/live/live";
+import type {
+  LiveChatMessage,
+  LiveRatingPulse,
+  Match,
+  Rating,
+  SeedReview,
+} from "@/lib/types";
+import { Avatar } from "../ui/Avatar";
+import { BackLink } from "../ui/BackLink";
+import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
+import { Crest } from "../ui/Crest";
+import { EmptyState } from "../ui/EmptyState";
+import { Icon } from "../ui/Icon";
+import { Label } from "../ui/Label";
+import { AddToListModal } from "../lists/AddToListModal";
+import { LiveActivityPanel } from "./LiveActivityPanel";
+import { RateModal } from "./RateModal";
+import { ReviewActions } from "./ReviewActions";
+import { RatingValue, ratingColor } from "../ui/RatingValue";
+import { SportChip } from "../ui/SportChip";
+import { StatusPill } from "../ui/StatusPill";
+import { TagPill } from "../ui/TagPill";
+
+interface Props {
+  match: Match;
+  reviews: SeedReview[];
+  realReviews: MatchReview[];
+  dist: number[] | null;
+  initialRating: Rating | null;
+  initialLiveMessages: LiveChatMessage[];
+  initialLivePulses: LiveRatingPulse[];
+  userLists: MatchList[];
+  listIdsContainingMatch: string[];
+  isOnWatchlist: boolean;
+}
+
+// Common shape for rendering real reviews (from the ratings table) above the
+// mock SeedReview seed content, without changing either source type.
+interface DisplayReview {
+  key: string;
+  name: string;
+  rating: number;
+  live: boolean;
+  tags: string[];
+  text: string;
+  time: string;
+  // Only set for real reviews -- mock seed content has no rating row/profile to act against.
+  ratingId?: string;
+  userId?: string;
+  likeCount?: number;
+  likedByMe?: boolean;
+}
+
+export function MatchDetailClient({
+  match: initialMatch,
+  reviews,
+  realReviews,
+  dist,
+  initialRating,
+  initialLiveMessages,
+  initialLivePulses,
+  userLists,
+  listIdsContainingMatch,
+  isOnWatchlist,
+}: Props) {
+  const { user, showToast, refreshRatings, hideScores } = useApp();
+  const router = useRouter();
+  const [addingToList, setAddingToList] = useState(false);
+  const [watchlisting, setWatchlisting] = useState(false);
+  const [match, setMatch] = useState(initialMatch);
+  // Re-syncs `match` whenever the server hands down a new `initialMatch`
+  // (e.g. handleSave's router.refresh() below) -- without this, a fresh
+  // server-rendered match after a save would be silently dropped in favor of
+  // whatever this component's own poll last saw. This is the React-endorsed
+  // "adjust state during render" pattern (store the previous prop, compare,
+  // and re-set state inline) rather than an effect, so there's no extra
+  // render showing stale data first.
+  const [prevInitialMatch, setPrevInitialMatch] = useState(initialMatch);
+  if (initialMatch !== prevInitialMatch) {
+    setPrevInitialMatch(initialMatch);
+    setMatch(initialMatch);
+  }
+  const [rating, setRating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [onWatchlist, setOnWatchlist] = useState(isOnWatchlist);
+  const userRating = initialRating;
+
+  // Keeps the scoreboard itself live for real (non-mock) matches -- separate
+  // from LiveActivityPanel's own 5s chat/pulse poll below, which already
+  // tracks match status for its own purposes. Mock matches never change, and
+  // a mock id never parses here, so this never fires a request for them.
+  // Polls for "upcoming" too (not just "live"), since a match can go live
+  // while the tab stays open and there'd otherwise be no way to notice.
+  // Stops for good once a poll response reports the match final: re-running
+  // with the new status fails the check below and the old interval's
+  // cleanup already ran.
+  useEffect(() => {
+    if (match.status === "final" || !parseLiveMatchId(match.id)) return;
+    let cancelled = false;
+    // Guards against the interval tick and a visibilitychange-triggered
+    // poll overlapping (e.g. tab backgrounded mid-fetch, then refocused): a
+    // response only applies if no newer poll has started since, so an
+    // older request that happens to resolve last can't overwrite fresher
+    // data with stale data.
+    let latestSeq = 0;
+
+    const poll = async () => {
+      if (document.hidden || cancelled) return;
+      const seq = ++latestSeq;
+      try {
+        const res = await fetch(`/api/matches/${match.id}/live`);
+        if (!res.ok || cancelled || seq !== latestSeq) return;
+        const data = await res.json();
+        if (cancelled || !data.match || seq !== latestSeq) return;
+        setMatch(data.match);
+      } catch {
+        // Network error -- keep stale data, try again next tick.
+      }
+    };
+
+    poll();
+    const intervalId = setInterval(poll, 30000);
+    const onVisible = () => {
+      if (!document.hidden) poll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [match.id, match.status]);
+  const existingLog = userRating
+    ? {
+        rating: userRating.rating,
+        review: userRating.review ?? "",
+        tags: userRating.tags,
+        live: userRating.watchedLive,
+      }
+    : undefined;
+
+  // Dimming the loser's side is itself a spoiler, so it's suppressed along
+  // with the score while masked.
+  const scoreMasked = hideScores && match.status === "final" && !revealed;
+  const winner =
+    !scoreMasked &&
+    match.status === "final" &&
+    match.a.score != null &&
+    typeof match.a.score === "number"
+      ? match.a.score > (match.b.score as number)
+        ? "a"
+        : (match.b.score as number) > match.a.score
+          ? "b"
+          : null
+      : null;
+
+  const displayReviews: DisplayReview[] = [
+    ...realReviews.map((r): DisplayReview => ({
+      key: r.id,
+      name: r.userName,
+      rating: r.rating,
+      live: r.watchedLive,
+      tags: r.tags,
+      text: r.review,
+      time: timeAgo(r.createdAt),
+      ratingId: r.id,
+      userId: r.userId,
+      likeCount: r.likeCount,
+      likedByMe: r.likedByMe,
+    })),
+    ...reviews.map((r, i): DisplayReview => ({
+      key: `seed-${i}`,
+      name: r.user,
+      rating: r.rating,
+      live: r.live,
+      tags: r.tags,
+      text: r.text,
+      time: r.time,
+    })),
+  ];
+
+  const requestRate = () => {
+    if (!user) {
+      router.push(
+        `/login?reason=rate&from=${encodeURIComponent(`/matches/${match.id}`)}`,
+      );
+      return;
+    }
+    setRating(true);
+  };
+
+  const requestWatchlist = async () => {
+    if (!user) {
+      router.push(
+        `/login?reason=rate&from=${encodeURIComponent(`/matches/${match.id}`)}`,
+      );
+      return;
+    }
+    setWatchlisting(true);
+    const result = await addToWatchlistAction(match.id);
+    setWatchlisting(false);
+    if ("error" in result) {
+      showToast(result.error);
+      return;
+    }
+    setOnWatchlist(true);
+    showToast("Added to your watchlist");
+  };
+
+  const handleSave = async (log: {
+    rating: number;
+    review: string;
+    tags: string[];
+    live: boolean;
+  }) => {
+    setSaving(true);
+    try {
+      await saveRatingAction(match.id, log);
+      setRating(false);
+      showToast("Logged to your diary");
+      router.refresh();
+      await refreshRatings();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteRatingAction(match.id);
+      setRating(false);
+      showToast("Removed from your diary");
+      router.refresh();
+      await refreshRatings();
+    } catch {
+      showToast("Couldn't remove this rating. Try again.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <main
+      style={{ maxWidth: 1024, margin: "0 auto", padding: "36px 28px 80px" }}
+    >
+      <BackLink />
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 18,
+        }}
+      >
+        <SportChip sport={match.sport} />
+        <span
+          style={{
+            fontSize: 12,
+            color: "var(--text-faint)",
+            fontFamily: "var(--font-mono, monospace)",
+          }}
+        >
+          {match.league}
+        </span>
+        <StatusPill match={match} />
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) 360px",
+          gap: 24,
+          alignItems: "start",
+        }}
+        className="bw-detail-grid"
+      >
+        {/* Left */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Scoreboard */}
+          <Card padding="32px 26px">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 12,
+                  opacity: winner && winner !== "a" ? 0.5 : 1,
+                }}
+              >
+                <Crest side={match.a} size={78} />
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 16,
+                    textAlign: "center",
+                    lineHeight: 1.2,
+                    color: "var(--text)",
+                  }}
+                >
+                  {match.a.name}
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  flexShrink: 0,
+                  minWidth: 120,
+                }}
+              >
+                {match.a.score != null ? (
+                  scoreMasked ? (
+                    <button
+                      onClick={() => setRevealed(true)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        border: "1px dashed var(--border)",
+                        background: "transparent",
+                        borderRadius: 99,
+                        padding: "6px 12px",
+                        cursor: "pointer",
+                        color: "var(--text-muted)",
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      <Icon
+                        name="eyeOff"
+                        size={14}
+                        stroke="var(--text-muted)"
+                      />
+                      Reveal score
+                    </button>
+                  ) : (
+                    <div
+                      style={{
+                        fontFamily: "var(--font-mono, monospace)",
+                        fontWeight: 800,
+                        fontSize: 46,
+                        letterSpacing: -1,
+                        color: "var(--text)",
+                      }}
+                    >
+                      {match.a.score}
+                      <span style={{ color: "var(--text-faint)" }}>·</span>
+                      {match.b.score}
+                    </div>
+                  )
+                ) : (
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono, monospace)",
+                      fontSize: 17,
+                      color: "var(--text-faint)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    VS
+                  </div>
+                )}
+                {match.note && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-faint)",
+                      fontFamily: "var(--font-mono, monospace)",
+                      marginTop: 6,
+                      textAlign: "center",
+                    }}
+                  >
+                    {match.note}
+                  </div>
+                )}
+              </div>
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 12,
+                  opacity: winner && winner !== "b" ? 0.5 : 1,
+                }}
+              >
+                <Crest side={match.b} size={78} />
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 16,
+                    textAlign: "center",
+                    lineHeight: 1.2,
+                    color: "var(--text)",
+                  }}
+                >
+                  {match.b.name}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Fan reviews */}
+          <div>
+            <Label as="h2" variant="section" style={{ marginBottom: 6 }}>
+              Fan reviews
+            </Label>
+            {displayReviews.length === 0 && (
+              <EmptyState
+                image="/Lebron-Lob-ASCII.png"
+                imageWidth={870}
+                imageHeight={1536}
+                alt="ASCII-art illustration of LeBron James mid-lob dunk"
+                title="No reviews yet."
+              />
+            )}
+            {displayReviews.map((r) => (
+              <div
+                key={r.key}
+                style={{
+                  padding: "18px 0",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    marginBottom: 9,
+                  }}
+                >
+                  <Avatar name={r.name} seed={r.userId ?? r.name} size={32} />
+                  {r.userId ? (
+                    <Link
+                      href={`/users/${r.userId}`}
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                        color: "var(--text)",
+                        textDecoration: "none",
+                      }}
+                    >
+                      {r.name}
+                    </Link>
+                  ) : (
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                        color: "var(--text)",
+                      }}
+                    >
+                      {r.name}
+                    </span>
+                  )}
+                  {r.live && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: "var(--text-faint)",
+                        fontFamily: "var(--font-mono, monospace)",
+                      }}
+                    >
+                      · live
+                    </span>
+                  )}
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 11,
+                      color: "var(--text-faint)",
+                      fontFamily: "var(--font-mono, monospace)",
+                    }}
+                  >
+                    {r.time}
+                  </span>
+                </div>
+                <RatingValue value={r.rating} size={13} />
+                {r.tags.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 9 }}>
+                    {r.tags.map((tg) => (
+                      <TagPill key={tg} label={tg} small />
+                    ))}
+                  </div>
+                )}
+                <p
+                  style={{
+                    fontSize: 15,
+                    margin: "10px 0 0",
+                    lineHeight: 1.55,
+                    color: "var(--text)",
+                  }}
+                >
+                  {r.text}
+                </p>
+                {r.ratingId && (
+                  <ReviewActions
+                    matchId={match.id}
+                    ratingId={r.ratingId}
+                    initialLikeCount={r.likeCount ?? 0}
+                    initialLikedByMe={r.likedByMe ?? false}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Community rating -- dist is a synthetic curve, not real vote data */}
+          {match.avg != null && dist && (
+            <Card padding={22}>
+              <Label variant="sub" style={{ marginBottom: 14 }}>
+                Community rating
+              </Label>
+              <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+                <div>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono, monospace)",
+                      fontWeight: 800,
+                      fontSize: 42,
+                      lineHeight: 1,
+                      color: ratingColor(match.avg),
+                    }}
+                  >
+                    {match.avg.toFixed(1)}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-faint)",
+                      fontFamily: "var(--font-mono, monospace)",
+                      marginTop: 5,
+                    }}
+                  >
+                    {match.logs.toLocaleString()} ratings
+                  </div>
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 5,
+                  }}
+                >
+                  {dist.map((w, i) => (
+                    <div
+                      key={i}
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: "var(--text-faint)",
+                          fontFamily: "var(--font-mono, monospace)",
+                          width: 14,
+                        }}
+                      >
+                        {[10, 8, 6, 4, 2][i]}
+                      </span>
+                      <div
+                        style={{
+                          flex: 1,
+                          height: 6,
+                          background: "var(--surface-2)",
+                          borderRadius: 99,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: w + "%",
+                            height: "100%",
+                            background: "var(--star)",
+                            borderRadius: 99,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Your rating */}
+          {userRating && user ? (
+            <Card tone="accent" padding={20}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 10,
+                }}
+              >
+                <Label color="var(--accent-strong)">YOUR RATING</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={requestRate}
+                  icon={
+                    <Icon name="pen" size={15} stroke="var(--accent-strong)" />
+                  }
+                >
+                  Edit
+                </Button>
+              </div>
+              <RatingValue value={userRating.rating} size={20} />
+              {userRating.watchedLive && (
+                <span
+                  style={{
+                    marginLeft: 10,
+                    fontSize: 11,
+                    color: "var(--accent-strong)",
+                    fontFamily: "var(--font-mono, monospace)",
+                  }}
+                >
+                  · watched live
+                </span>
+              )}
+              {userRating.tags && userRating.tags.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    flexWrap: "wrap",
+                    marginTop: 12,
+                  }}
+                >
+                  {userRating.tags.map((tg) => (
+                    <TagPill key={tg} label={tg} small active />
+                  ))}
+                </div>
+              )}
+              {userRating.review && (
+                <p
+                  style={{
+                    fontSize: 14,
+                    margin: "12px 0 0",
+                    lineHeight: 1.5,
+                    color: "var(--text)",
+                  }}
+                >
+                  {userRating.review}
+                </p>
+              )}
+            </Card>
+          ) : match.status === "upcoming" ? (
+            <Card padding={20}>
+              <Button
+                fullWidth
+                size="lg"
+                variant={onWatchlist ? "secondary" : "primary"}
+                disabled={watchlisting || onWatchlist}
+                onClick={requestWatchlist}
+                icon={
+                  onWatchlist ? (
+                    <Icon name="check" size={19} stroke="var(--text)" />
+                  ) : (
+                    <Icon name="plus" size={19} stroke="var(--accent-text)" />
+                  )
+                }
+              >
+                {onWatchlist
+                  ? "On your watchlist"
+                  : watchlisting
+                    ? "Adding…"
+                    : "Add to watchlist"}
+              </Button>
+              {!user && (
+                <p
+                  style={{
+                    fontSize: 12.5,
+                    color: "var(--text-faint)",
+                    textAlign: "center",
+                    margin: "12px 0 0",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  You&rsquo;ll be asked to sign in first — watchlisting requires
+                  an account.
+                </p>
+              )}
+            </Card>
+          ) : (
+            <Card padding={20}>
+              <Button
+                fullWidth
+                size="lg"
+                onClick={requestRate}
+                icon={
+                  <Icon name="plus" size={19} stroke="var(--accent-text)" />
+                }
+              >
+                Rate this match
+              </Button>
+              {!user && (
+                <p
+                  style={{
+                    fontSize: 12.5,
+                    color: "var(--text-faint)",
+                    textAlign: "center",
+                    margin: "12px 0 0",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  You&rsquo;ll be asked to sign in first — rating requires an
+                  account.
+                </p>
+              )}
+            </Card>
+          )}
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              user
+                ? setAddingToList(true)
+                : router.push(
+                    `/login?reason=rate&from=${encodeURIComponent(`/matches/${match.id}`)}`,
+                  )
+            }
+            icon={<Icon name="plus" size={15} stroke="var(--text)" />}
+          >
+            Add to list
+          </Button>
+
+          {match.status !== "upcoming" && (
+            <LiveActivityPanel
+              key={match.id}
+              matchId={match.id}
+              initialStatus={match.status}
+              matchStatus={match.status}
+              initialMessages={initialLiveMessages}
+              initialPulses={initialLivePulses}
+            />
+          )}
+        </div>
+      </div>
+
+      {rating && (
+        <RateModal
+          match={match}
+          existing={existingLog}
+          saving={saving}
+          deleting={deleting}
+          onClose={() => setRating(false)}
+          onSave={handleSave}
+          onDelete={existingLog ? handleDelete : undefined}
+        />
+      )}
+
+      {addingToList && (
+        <AddToListModal
+          matchId={match.id}
+          lists={userLists}
+          initialContainingListIds={listIdsContainingMatch}
+          onClose={() => setAddingToList(false)}
+        />
+      )}
+    </main>
+  );
+}
