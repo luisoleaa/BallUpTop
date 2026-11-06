@@ -16,7 +16,6 @@ import {
 } from "@/components/layout/PopularReviews";
 import { Section } from "@/components/layout/Section";
 import { Button } from "@/components/ui/Button";
-import { Label } from "@/components/ui/Label";
 
 const POPULAR_REVIEWS_LIMIT = 4;
 
