@@ -1,13 +1,19 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
-export async function toggleReviewLikeAction(ratingId: string): Promise<{ liked: boolean } | { error: string }> {
+export async function toggleReviewLikeAction(
+  ratingId: string,
+): Promise<{ liked: boolean } | { error: string }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sign in to like a review." };
+
+  const { success } = await checkRateLimit("action", user.id);
+  if (!success) return { error: "Too many requests. Try again in a minute." };
 
   const { data: existing } = await supabase
     .from("review_likes")
@@ -17,12 +23,18 @@ export async function toggleReviewLikeAction(ratingId: string): Promise<{ liked:
     .maybeSingle();
 
   if (existing) {
-    const { error } = await supabase.from("review_likes").delete().eq("user_id", user.id).eq("rating_id", ratingId);
+    const { error } = await supabase
+      .from("review_likes")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("rating_id", ratingId);
     if (error) return { error: error.message };
     return { liked: false };
   }
 
-  const { error } = await supabase.from("review_likes").insert({ user_id: user.id, rating_id: ratingId });
+  const { error } = await supabase
+    .from("review_likes")
+    .insert({ user_id: user.id, rating_id: ratingId });
   if (error) return { error: error.message };
   return { liked: true };
 }

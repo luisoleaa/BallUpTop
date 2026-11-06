@@ -3,12 +3,19 @@ import {
   getLiveRatingPulses,
 } from "@/lib/queries/live-activity";
 import { resolveMatchStatus } from "@/lib/match-status-cache";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+
+  const { success } = await checkRateLimit("live-api", await getClientIp());
+  if (!success) {
+    return Response.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   // `since`/`messagesSince` let a poller fetch only pulses/messages newer
   // than the last one it already holds, instead of the full match history
   // every 5s -- see lib/queries/live-activity.ts's getLiveRatingPulses /

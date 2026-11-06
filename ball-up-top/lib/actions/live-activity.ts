@@ -6,6 +6,7 @@
 // convention as toggleReviewLikeAction in lib/actions/review-likes.ts.
 import { createClient } from "@/lib/supabase/server";
 import { resolveMatchStatus } from "@/lib/match-status-cache";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { LiveChatMessage, LiveRatingPulse } from "@/lib/types";
 
 const CHAT_MAX_LEN = 240;
@@ -65,6 +66,9 @@ export async function postLiveChatMessageAction(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sign in to chat." };
 
+  const { success } = await checkRateLimit("action", user.id);
+  if (!success) return { error: "Too many requests. Try again in a minute." };
+
   const trimmed = message.trim();
   if (!trimmed || trimmed.length > CHAT_MAX_LEN) {
     return { error: `Message must be 1-${CHAT_MAX_LEN} characters.` };
@@ -114,6 +118,9 @@ export async function submitRatingPulseAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sign in to pulse-rate." };
+
+  const { success } = await checkRateLimit("action", user.id);
+  if (!success) return { error: "Too many requests. Try again in a minute." };
 
   const liveError = await assertMatchIsLive(matchId);
   if (liveError) return { error: liveError };

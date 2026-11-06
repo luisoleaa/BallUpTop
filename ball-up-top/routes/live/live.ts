@@ -11,6 +11,23 @@ const LIVE_SPORTS = ["mlb", "nba", "nfl", "soccer", "ufc", "nhl"] as const;
 export type LiveSport = (typeof LIVE_SPORTS)[number];
 const VALID_SPORTS = new Set<LiveSport>(LIVE_SPORTS);
 
+// gameId comes from a free-text, unvalidated match_id column (ratings,
+// list_items) and ends up interpolated straight into outbound ESPN/MLB
+// Stats API URLs (query params, and for soccer a path segment) -- see each
+// provider's getXGamesById. These patterns match the real id shapes those
+// providers actually produce (plain numeric ids; soccer's
+// "<leagueCode>-<eventId>"; UFC's "<YYYYMMDD>-<competitionId>"), so a
+// malformed id is rejected here, at the one shared parsing choke point,
+// instead of flowing into a request.
+const GAME_ID_PATTERNS: Record<LiveSport, RegExp> = {
+  mlb: /^\d+$/,
+  nba: /^\d+$/,
+  nfl: /^\d+$/,
+  nhl: /^\d+$/,
+  soccer: /^[a-z]+(?:\.[a-z0-9]+)?-\d+$/,
+  ufc: /^\d{8}-\d+$/,
+};
+
 // Sports whose ESPN-CDN logo can be derived from sport+abbreviation alone
 // (via TeamLogo). Soccer provides an explicit logoUrl instead; UFC has no
 // team art and falls through to the flag/monogram chain.
@@ -120,7 +137,10 @@ export function parseLiveMatchId(
 ): { sport: LiveSport; gameId: string } | null {
   const m = /^([a-z]+)-(.+)$/.exec(id);
   if (!m || !VALID_SPORTS.has(m[1] as LiveSport)) return null;
-  return { sport: m[1] as LiveSport, gameId: m[2] };
+  const sport = m[1] as LiveSport;
+  const gameId = m[2];
+  if (!GAME_ID_PATTERNS[sport].test(gameId)) return null;
+  return { sport, gameId };
 }
 
 // Live games first, round-robin across sports so one sport with many

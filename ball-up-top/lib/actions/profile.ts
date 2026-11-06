@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export interface ProfileActionState {
   error?: string;
@@ -10,7 +11,7 @@ export interface ProfileActionState {
 
 export async function updateDisplayNameAction(
   _prevState: ProfileActionState,
-  formData: FormData
+  formData: FormData,
 ): Promise<ProfileActionState> {
   const displayName = String(formData.get("displayName") ?? "").trim();
   if (!displayName) return { error: "Enter a display name." };
@@ -22,11 +23,16 @@ export async function updateDisplayNameAction(
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?reason=settings");
 
+  const { success } = await checkRateLimit("action", user.id);
+  if (!success) return { error: "Too many requests. Try again in a minute." };
+
   // upsert, not update -- a user whose profiles row predates the
   // handle_new_user trigger (or who signed up before that trigger existed)
   // would otherwise have this silently no-op: an UPDATE matching zero rows
   // doesn't error, it would just report "Saved" without persisting anything.
-  const { error } = await supabase.from("profiles").upsert({ id: user.id, display_name: displayName });
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({ id: user.id, display_name: displayName });
   if (error) return { error: error.message };
 
   return { saved: true };
@@ -37,6 +43,14 @@ export async function updateDisplayNameAction(
 // no service-role key is needed in app code. Requires that RPC to exist.
 export async function deleteAccountAction() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?reason=settings");
+
+  const { success } = await checkRateLimit("action", user.id);
+  if (!success) throw new Error("Too many requests. Try again in a minute.");
+
   const { error } = await supabase.rpc("delete_own_account");
   if (error) throw new Error(error.message);
 
