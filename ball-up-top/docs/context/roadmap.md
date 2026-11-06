@@ -81,12 +81,11 @@ when asked to extend the app, not a to-do list to work through unprompted.
   deletion, diary sort/filter + per-sport breakdown, and `/browse` expanded
   to include real/live matches with status/sort/tag filters. See
   `docs/context/architecture.md`'s "Real backend, by piece" section and
-  the Obsidian context doc's 10/18/2026 entry for full detail. **Three new
-  migrations (`supabase/migrations/202610180000{01,02,03}`) are written
-  and committed but not yet applied to the live project** — `/users/[id]`,
-  follows, and lists are all non-functional until that SQL is run by hand.
-  This replaces the previously-fake "Set a reminder" button on upcoming
-  matches, which now really adds the match to the signed-in user's
+  the Obsidian context doc's 10/18/2026 entry for full detail. The three
+  migrations (`supabase/migrations/202610180000{01,02,03}`) were applied to
+  the live project 11/05/2026 — `/users/[id]`, follows, and lists are fully
+  functional. This replaces the previously-fake "Set a reminder" button on
+  upcoming matches, which now really adds the match to the signed-in user's
   watchlist.
 
 ## Open: unify the mock and real game systems
