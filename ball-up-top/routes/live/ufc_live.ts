@@ -18,13 +18,18 @@ const ESPN_UFC = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc";
 interface EspnUfcAthlete {
   displayName: string;
   shortName?: string;
-  flag?: { href: string; alt?: string };
+}
+
+interface EspnUfcRecord {
+  type: string; // "total" is the fighter's overall record
+  summary: string; // e.g. "17-0-0"
 }
 
 interface EspnUfcCompetitor {
   id: string;
   winner?: boolean;
   athlete: EspnUfcAthlete;
+  records?: EspnUfcRecord[];
 }
 
 export interface EspnUfcCompetition {
@@ -54,37 +59,6 @@ const STATE: Record<EspnUfcCompetition["status"]["type"]["state"], string> = {
   post: "Final",
 };
 
-// FlagBadge only has hand-drawn SVGs for a small fixed set of ISO-alpha-2
-// codes. ESPN's athlete.flag.href embeds its own 3-letter country codes
-// (e.g. "usa", "eng", "bra") that don't match that scheme — map the ones
-// that have a reasonable FlagBadge equivalent; anything else is left
-// unmapped so Crest falls through to the monogram tier instead of an empty
-// flag box.
-const ESPN_TO_FLAG_BADGE: Record<string, string> = {
-  usa: "us",
-  bra: "br",
-  mex: "mx",
-  esp: "es",
-  ita: "it",
-  geo: "ge",
-  ind: "in",
-  nld: "nl",
-  ned: "nl",
-  aus: "au",
-  arg: "ar",
-  gbr: "gb",
-  eng: "gb",
-  sco: "gb",
-  wls: "gb",
-  nir: "gb",
-};
-
-function flagCode(athlete: EspnUfcAthlete): string | undefined {
-  const m = /\/countries\/\d+\/([a-z]+)\.png/i.exec(athlete.flag?.href ?? "");
-  const code = m?.[1]?.toLowerCase();
-  return code ? ESPN_TO_FLAG_BADGE[code] : undefined;
-}
-
 function toFighter(
   c: EspnUfcCompetitor,
   state: string,
@@ -98,7 +72,8 @@ function toFighter(
     .toUpperCase();
   const score =
     state === "Final" ? (c.winner ? "W" : anyWinner ? "L" : null) : null;
-  return { id: Number(c.id), name, abbr, score, flag: flagCode(c.athlete) };
+  const record = c.records?.find((r) => r.type === "total")?.summary;
+  return { id: Number(c.id), name, abbr, score, record };
 }
 
 // UTC YYYYMMDD — UFC's day grouping in this API is plain UTC, confirmed by

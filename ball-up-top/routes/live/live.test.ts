@@ -82,7 +82,7 @@ describe("selectLiveNow round-robin fairness", () => {
 });
 
 describe("toSide / toMatch passthrough", () => {
-  it("sets logoSport for mlb/nba/nfl and passes logoUrl/flag through for soccer/ufc instead", () => {
+  it("sets logoSport for mlb/nba/nfl and passes logoUrl/record through for soccer/ufc instead", () => {
     const mlbSide = toSide({ id: 1, name: "A", abbr: "A", score: 0 }, "mlb");
     expect(mlbSide.logoSport).toBe("mlb");
     expect(mlbSide.logoUrl).toBeUndefined();
@@ -95,11 +95,11 @@ describe("toSide / toMatch passthrough", () => {
     expect(soccerSide.logoUrl).toBe("https://x/a.png");
 
     const ufcSide = toSide(
-      { id: 1, name: "A", abbr: "A", score: "W", flag: "us" },
+      { id: 1, name: "A", abbr: "A", score: "W", record: "17-0-0" },
       "ufc",
     );
     expect(ufcSide.logoSport).toBeUndefined();
-    expect(ufcSide.flag).toBe("us");
+    expect(ufcSide.record).toBe("17-0-0");
     expect(ufcSide.score).toBe("W");
   });
 

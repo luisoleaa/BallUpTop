@@ -39,26 +39,14 @@ function fight(
       {
         id: "2504639",
         winner: false,
-        athlete: {
-          displayName: "Court McGee",
-          shortName: "C. McGee",
-          flag: {
-            href: "https://a.espncdn.com/i/teamlogos/countries/500/usa.png",
-            alt: "USA",
-          },
-        },
+        athlete: { displayName: "Court McGee", shortName: "C. McGee" },
+        records: [{ type: "total", summary: "19-10-0" }],
       },
       {
         id: "5290958",
         winner: state === "post",
-        athlete: {
-          displayName: "Eric Nolan",
-          shortName: "E. Nolan",
-          flag: {
-            href: "https://a.espncdn.com/i/teamlogos/countries/500/fra.png",
-            alt: "France",
-          },
-        },
+        athlete: { displayName: "Eric Nolan", shortName: "E. Nolan" },
+        records: [{ type: "total", summary: "9-3-0" }],
       },
     ],
     ...overrides,
@@ -99,10 +87,17 @@ describe("mapFight", () => {
     expect(g.home.abbr).toBe("NOLAN".slice(0, 3));
   });
 
-  it("maps a known ESPN country code to its FlagBadge equivalent, and leaves unknown codes unmapped", () => {
+  it("reads each fighter's current record from the 'total' records entry", () => {
     const g = mustMap("UFC 332: Silva vs. Wang", fight("pre"));
-    expect(g.away.flag).toBe("us"); // usa -> us
-    expect(g.home.flag).toBeUndefined(); // fra has no FlagBadge equivalent
+    expect(g.away.record).toBe("19-10-0");
+    expect(g.home.record).toBe("9-3-0");
+  });
+
+  it("leaves record undefined when ESPN omits a 'total' records entry", () => {
+    const malformed = fight("pre");
+    malformed.competitors[0].records = [];
+    const g = mustMap("UFC 332: Silva vs. Wang", malformed);
+    expect(g.away.record).toBeUndefined();
   });
 
   it("returns null when a fight is missing one of its two fighters", () => {
@@ -155,7 +150,7 @@ describe("flattenScoreboard", () => {
 });
 
 describe("UFC through the shared helpers", () => {
-  it("toMatch has no logoSport/logoUrl for UFC sides, so Crest falls through to the flag/monogram chain", () => {
+  it("toMatch has no logoSport/logoUrl for UFC sides, so Crest falls through to the record/monogram chain", () => {
     const m = toMatch(mustMap("UFC 332: Silva vs. Wang", fight("in")));
     expect(m.sport).toBe("ufc");
     expect(m.a.logoSport).toBeUndefined();

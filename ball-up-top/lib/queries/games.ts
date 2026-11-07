@@ -31,32 +31,61 @@ const GAME_TEAMS_TABLES: Record<GameSport, string> = {
 
 // No round names available (just a flat postseason flag), so these are all
 // treated as synonyms for "any postseason game".
-const PLAYOFF_WORDS = new Set(["finals", "final", "semifinals", "semifinal", "playoffs", "playoff", "postseason"]);
-const SPORT_WORDS: Record<string, GameSport> = { nba: "nba", nfl: "nfl", mlb: "mlb" };
+const PLAYOFF_WORDS = new Set([
+  "finals",
+  "final",
+  "semifinals",
+  "semifinal",
+  "playoffs",
+  "playoff",
+  "postseason",
+]);
+const SPORT_WORDS: Record<string, GameSport> = {
+  nba: "nba",
+  nfl: "nfl",
+  mlb: "mlb",
+};
 
-export function parsePlayoffPhrase(term: string): { isPlayoffPhrase: boolean; sport?: GameSport } {
+export function parsePlayoffPhrase(term: string): {
+  isPlayoffPhrase: boolean;
+  sport?: GameSport;
+} {
   const words = term.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.some(w => PLAYOFF_WORDS.has(w))) return { isPlayoffPhrase: false };
-  const sportWord = words.find(w => w in SPORT_WORDS);
-  return { isPlayoffPhrase: true, sport: sportWord ? SPORT_WORDS[sportWord] : undefined };
+  if (!words.some((w) => PLAYOFF_WORDS.has(w)))
+    return { isPlayoffPhrase: false };
+  const sportWord = words.find((w) => w in SPORT_WORDS);
+  return {
+    isPlayoffPhrase: true,
+    sport: sportWord ? SPORT_WORDS[sportWord] : undefined,
+  };
 }
 
 // Resolves a team abbreviation ("BOS") to its full name(s) so it can be
 // matched against title, which never contains the abbreviation itself.
-async function resolveTeamNameMatches(term: string, sport: GameSport | "all"): Promise<string[]> {
+async function resolveTeamNameMatches(
+  term: string,
+  sport: GameSport | "all",
+): Promise<string[]> {
   const supabase = await createClient();
-  const tables = sport === "all" ? Object.values(GAME_TEAMS_TABLES) : [GAME_TEAMS_TABLES[sport]];
+  const tables =
+    sport === "all"
+      ? Object.values(GAME_TEAMS_TABLES)
+      : [GAME_TEAMS_TABLES[sport]];
 
   const results = await Promise.all(
-    tables.map(table =>
-      supabase.from(table).select("full_name").ilike("abbreviation", `%${escapeLike(term)}%`)
-    )
+    tables.map((table) =>
+      supabase
+        .from(table)
+        .select("full_name")
+        .ilike("abbreviation", `%${escapeLike(term)}%`),
+    ),
   );
 
   const names: string[] = [];
   for (const { data, error } of results) {
     if (error) throw new Error(error.message);
-    for (const row of (data as { full_name: string }[]) ?? []) names.push(row.full_name);
+    for (const row of (data as { full_name: string }[]) ?? [])
+      names.push(row.full_name);
   }
   return names;
 }
@@ -67,14 +96,20 @@ async function resolveTeamNameMatches(term: string, sport: GameSport | "all"): P
 // search page in the meantime.
 let extendedColumnsAvailable: boolean | null = null;
 
-async function hasExtendedColumns(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
+async function hasExtendedColumns(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<boolean> {
   if (extendedColumnsAvailable != null) return extendedColumnsAvailable;
-  const { error } = await supabase.from("game_search").select("postseason").limit(1);
+  const { error } = await supabase
+    .from("game_search")
+    .select("postseason")
+    .limit(1);
   extendedColumnsAvailable = !error;
   return extendedColumnsAvailable;
 }
 
-const BASE_COLUMNS = "sport,id,title,date,status,home_team_score,visitor_team_score,search_count";
+const BASE_COLUMNS =
+  "sport,id,title,date,status,home_team_score,visitor_team_score,search_count";
 const EXTENDED_COLUMNS = `${BASE_COLUMNS},postseason,home_team_abbr,visitor_team_abbr`;
 
 export async function searchGames({
@@ -100,13 +135,17 @@ export async function searchGames({
 
   const term = q.trim();
   if (term) {
-    const { isPlayoffPhrase, sport: phraseSport } = extended ? parsePlayoffPhrase(term) : { isPlayoffPhrase: false, sport: undefined };
+    const { isPlayoffPhrase, sport: phraseSport } = extended
+      ? parsePlayoffPhrase(term)
+      : { isPlayoffPhrase: false, sport: undefined };
     if (isPlayoffPhrase) {
       query = query.eq("postseason", true);
       if (phraseSport) query = query.eq("sport", phraseSport);
     } else {
       const teamNames = await resolveTeamNameMatches(term, sport);
-      const orClauses = [term, ...teamNames].map(t => `title.ilike.%${escapeLike(t)}%`);
+      const orClauses = [term, ...teamNames].map(
+        (t) => `title.ilike.%${escapeLike(t)}%`,
+      );
       query = query.or(orClauses.join(","));
     }
   }
@@ -120,12 +159,14 @@ export async function searchGames({
 
   // Fill in safe defaults for the extended columns when they're not
   // available yet, so callers can rely on the full GameSearchResult shape.
-  const games = ((data as unknown as Record<string, unknown>[]) ?? []).map((g) => ({
-    postseason: null,
-    home_team_abbr: "",
-    visitor_team_abbr: "",
-    ...g,
-  })) as GameSearchResult[];
+  const games = ((data as unknown as Record<string, unknown>[]) ?? []).map(
+    (g) => ({
+      postseason: null,
+      home_team_abbr: "",
+      visitor_team_abbr: "",
+      ...g,
+    }),
+  ) as GameSearchResult[];
 
   return { games, total: count ?? 0 };
 }
@@ -141,29 +182,60 @@ export async function getOnThisDay(limit = 6): Promise<GameSearchResult[]> {
   const columns = extended ? EXTENDED_COLUMNS : BASE_COLUMNS;
 
   const now = new Date();
-  const [month, day, currentYear] = [now.getUTCMonth(), now.getUTCDate(), now.getUTCFullYear()];
+  const [month, day, currentYear] = [
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    now.getUTCFullYear(),
+  ];
   const YEARS_TO_CHECK = 12;
 
   const perYear = await Promise.all(
-    Array.from({ length: YEARS_TO_CHECK }, (_, i) => currentYear - 1 - i).map(async (year) => {
-      const from = new Date(Date.UTC(year, month, day));
-      const to = new Date(Date.UTC(year, month, day + 1));
-      // "finished" is sport-agnostic via score presence -- the status string
-      // itself varies by sport ("Final" for NBA/NFL, "STATUS_FINAL" for MLB).
-      const { data } = await supabase
-        .from("game_search")
-        .select(columns)
-        .not("home_team_score", "is", null)
-        .gte("date", from.toISOString())
-        .lt("date", to.toISOString())
-        .order("search_count", { ascending: false })
-        .limit(1);
-      return (data as unknown as Record<string, unknown>[] | null)?.[0] ?? null;
-    })
+    Array.from({ length: YEARS_TO_CHECK }, (_, i) => currentYear - 1 - i).map(
+      async (year) => {
+        const from = new Date(Date.UTC(year, month, day));
+        const to = new Date(Date.UTC(year, month, day + 1));
+        // "finished" is sport-agnostic via score presence -- the status string
+        // itself varies by sport ("Final" for NBA/NFL, "STATUS_FINAL" for MLB).
+        const { data } = await supabase
+          .from("game_search")
+          .select(columns)
+          .not("home_team_score", "is", null)
+          .gte("date", from.toISOString())
+          .lt("date", to.toISOString())
+          .order("search_count", { ascending: false })
+          .limit(1);
+        return (
+          (data as unknown as Record<string, unknown>[] | null)?.[0] ?? null
+        );
+      },
+    ),
   );
 
-  const rows = perYear.filter((r): r is Record<string, unknown> => r != null).slice(0, limit);
-  return rows.map((g) => ({ postseason: null, home_team_abbr: "", visitor_team_abbr: "", ...g })) as GameSearchResult[];
+  const rows = perYear
+    .filter((r): r is Record<string, unknown> => r != null)
+    .slice(0, limit);
+  return rows.map((g) => ({
+    postseason: null,
+    home_team_abbr: "",
+    visitor_team_abbr: "",
+    ...g,
+  })) as GameSearchResult[];
+}
+
+// Plain, deterministic one-liner for a finished game -- no AI/search call,
+// just the data already on hand. Home-page "On this day" cards only; /search
+// results (which reuse GameResultCard) never pass this in.
+export function getOnThisDayBlurb(game: GameSearchResult): string {
+  const [home, visitor] = game.title.split(" vs ");
+  const { home_team_score: h, visitor_team_score: v } = game;
+  if (h == null || v == null || !home || !visitor) return "";
+
+  const suffix = game.postseason ? " in the playoffs" : "";
+  if (h === v) return `${home} and ${visitor} tied ${h}${suffix}`;
+
+  const [winner, winnerScore, loser, loserScore] =
+    h > v ? [home, h, visitor, v] : [visitor, v, home, h];
+  return `${winner} beat ${loser} ${winnerScore}–${loserScore}${suffix}`;
 }
 
 const GAME_TABLES: Record<GameSport, string> = {
@@ -176,7 +248,9 @@ export async function getGame(sport: GameSport, id: number) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from(GAME_TABLES[sport])
-    .select("id,title,date,status,home_team_score,visitor_team_score,search_count")
+    .select(
+      "id,title,date,status,home_team_score,visitor_team_score,search_count",
+    )
     .eq("id", id)
     .maybeSingle();
 

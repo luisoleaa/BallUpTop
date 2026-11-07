@@ -327,6 +327,17 @@ export function MatchDetailClient({
                 >
                   {match.a.name}
                 </div>
+                {match.a.record && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text-faint)",
+                      fontFamily: "var(--font-mono, monospace)",
+                    }}
+                  >
+                    {match.a.record}
+                  </div>
+                )}
               </div>
               <div
                 style={{
@@ -426,6 +437,17 @@ export function MatchDetailClient({
                 >
                   {match.b.name}
                 </div>
+                {match.b.record && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text-faint)",
+                      fontFamily: "var(--font-mono, monospace)",
+                    }}
+                  >
+                    {match.b.record}
+                  </div>
+                )}
               </div>
             </div>
           </Card>
