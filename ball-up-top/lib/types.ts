@@ -25,7 +25,7 @@ export interface Side {
   // under their name instead of a flag.
   record?: string;
   // Set for real (non-mock) teams: Crest renders the ESPN logo via TeamLogo.
-  logoSport?: "nba" | "nfl" | "mlb";
+  logoSport?: "nba" | "nfl" | "mlb" | "nhl";
   // Explicit crest URL from a provider (e.g. soccer). Checked before logoSport in Crest.
   logoUrl?: string;
   // string for F1 positions ("P1") and UFC results ("W"/"L")

@@ -38,7 +38,7 @@ const GAME_ID_PATTERNS: Record<LiveSport, RegExp> = {
 // Sports whose ESPN-CDN logo can be derived from sport+abbreviation alone
 // (via TeamLogo). Soccer provides an explicit logoUrl instead; UFC has no
 // team art and falls through to the record/monogram chain.
-const LOGO_SPORTS = new Set<LiveSport>(["mlb", "nba", "nfl"]);
+const LOGO_SPORTS = new Set<LiveSport>(["mlb", "nba", "nfl", "nhl"]);
 
 export interface liveTeam {
   id: number;
@@ -193,6 +193,37 @@ export function selectLiveNow(
   return [...liveOrdered, ...upcoming.slice(0, needed)];
 }
 
+// Pure text/sport/live-state filter over an already-fetched live-games list.
+// Shared by /search's "also show live & upcoming real games" feature and
+// (via searchLiveGames in lib/queries/matches.ts) its API route/SSR page --
+// kept pure and exported here, alongside roundRobinBySport, so it's
+// unit-testable without a network/redis round-trip.
+export function filterLiveGames(
+  games: liveGame[],
+  {
+    q,
+    sport,
+    liveOnly,
+  }: { q: string; sport: LiveSport | "all"; liveOnly: boolean },
+): liveGame[] {
+  const term = q.trim().toLowerCase();
+  return games.filter((g) => {
+    if (sport !== "all" && g.sport !== sport) return false;
+    if (liveOnly && g.state !== "Live") return false;
+    if (!term) return true;
+    const haystack = [
+      g.away.name,
+      g.away.abbr,
+      g.home.name,
+      g.home.abbr,
+      g.league,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(term);
+  });
+}
+
 const STATUS_BY_STATE: Record<string, MatchStatus> = {
   Live: "live",
   Final: "final",
@@ -205,7 +236,7 @@ export function toSide(team: liveTeam, sport: LiveSport): Side {
     abbr: team.abbr,
     color: "var(--surface-2)",
     logoSport: LOGO_SPORTS.has(sport)
-      ? (sport as "mlb" | "nba" | "nfl")
+      ? (sport as "mlb" | "nba" | "nfl" | "nhl")
       : undefined,
     logoUrl: team.logoUrl,
     record: team.record,

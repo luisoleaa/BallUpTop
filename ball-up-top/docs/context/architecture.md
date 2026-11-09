@@ -20,8 +20,8 @@ on purpose:
   `toMatch`, `toSide` — pure, safe for client imports), `mlb_live.ts` (MLB Stats
   API), `nba_live.ts`/`nfl_live.ts`/`nhl_live.ts` (ESPN's keyless site API —
   `cdn.nba.com` 403s server requests but `site.api.espn.com` doesn't; ESPN is
-  unofficial like the logo CDN; `nhl_live.ts` has no ESPN-CDN logo tier wired yet,
-  so its crests fall back to the colored-monogram tier), `soccer_live.ts` (same
+  unofficial like the logo CDN; `nhl_live.ts` shares NBA/NFL/MLB's ESPN-CDN
+  logo tier as of 11/08/2026), `soccer_live.ts` (same
   ESPN API, fanned out across 6 league codes internally —
   `eng.1`/`esp.1`/`ger.1`/`ita.1`/`fra.1`/`uefa.champions` — but looks
   like one provider to `all_live.ts`), `ufc_live.ts` (same ESPN API; one ESPN
