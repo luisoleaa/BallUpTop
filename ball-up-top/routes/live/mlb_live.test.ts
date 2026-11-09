@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapMlbGame } from "./mlb_live";
+import { mapMlbGame, type MlbGame } from "./mlb_live";
 import {
   liveMatchId,
   parseLiveMatchId,
@@ -29,7 +29,7 @@ describe("mapMlbGame", () => {
       linescore: { inningState: "Top", currentInningOrdinal: "6th" },
     };
 
-    const result = mapMlbGame(raw as any);
+    const result = mapMlbGame(raw as MlbGame);
     expect(result.away.abbr).toBe("NYY");
     expect(result.home.abbr).toBe("WSH");
     expect(result.clock).toBe("Top 6th");
@@ -56,7 +56,7 @@ describe("mapMlbGame", () => {
       linescore: undefined,
     };
 
-    const result = mapMlbGame(raw as any);
+    const result = mapMlbGame(raw as MlbGame);
     expect(result.clock).toBeNull();
     expect(result.away.score).toBeNull();
     expect(result.home.score).toBeNull();

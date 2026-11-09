@@ -28,7 +28,10 @@ export function DiaryClient({
   const [sport, setSport] = useState<"all" | SportSlug>("all");
   const [sortBy, setSortBy] = useState<SortBy>("newest");
 
-  const allMatches: Match[] = [...MATCHES, ...realMatches];
+  const allMatches: Match[] = useMemo(
+    () => [...MATCHES, ...realMatches],
+    [realMatches],
+  );
   const matchById = useMemo(
     () => new Map(allMatches.map((m) => [m.id, m])),
     [allMatches],

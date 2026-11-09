@@ -6,7 +6,7 @@ interface MlbTeamSide {
   score?: number;
 }
 
-interface MlbGame {
+export interface MlbGame {
   gameGuid: string;
   gamePk: number;
   gameDate: string;

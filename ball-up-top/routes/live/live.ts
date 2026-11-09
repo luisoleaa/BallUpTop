@@ -7,14 +7,38 @@ import type { Match, MatchStatus, Side } from "@/lib/types";
 // VALID_SPORTS both derive from this array so they can't drift apart (a
 // sport missing from VALID_SPORTS would fail to parse silently in
 // parseLiveMatchId, with no compiler error to catch it).
-const LIVE_SPORTS = ["mlb", "nba", "nfl", "soccer", "ufc", "nhl"] as const;
+export const LIVE_SPORTS = [
+  "mlb",
+  "nba",
+  "nfl",
+  "soccer",
+  "ufc",
+  "nhl",
+] as const;
 export type LiveSport = (typeof LIVE_SPORTS)[number];
 const VALID_SPORTS = new Set<LiveSport>(LIVE_SPORTS);
 
+// gameId comes from a free-text, unvalidated match_id column (ratings,
+// list_items) and ends up interpolated straight into outbound ESPN/MLB
+// Stats API URLs (query params, and for soccer a path segment) -- see each
+// provider's getXGamesById. These patterns match the real id shapes those
+// providers actually produce (plain numeric ids; soccer's
+// "<leagueCode>-<eventId>"; UFC's "<YYYYMMDD>-<competitionId>"), so a
+// malformed id is rejected here, at the one shared parsing choke point,
+// instead of flowing into a request.
+const GAME_ID_PATTERNS: Record<LiveSport, RegExp> = {
+  mlb: /^\d+$/,
+  nba: /^\d+$/,
+  nfl: /^\d+$/,
+  nhl: /^\d+$/,
+  soccer: /^[a-z]+(?:\.[a-z0-9]+)?-\d+$/,
+  ufc: /^\d{8}-\d+$/,
+};
+
 // Sports whose ESPN-CDN logo can be derived from sport+abbreviation alone
 // (via TeamLogo). Soccer provides an explicit logoUrl instead; UFC has no
-// team art and falls through to the flag/monogram chain.
-const LOGO_SPORTS = new Set<LiveSport>(["mlb", "nba", "nfl"]);
+// team art and falls through to the record/monogram chain.
+const LOGO_SPORTS = new Set<LiveSport>(["mlb", "nba", "nfl", "nhl"]);
 
 export interface liveTeam {
   id: number;
@@ -22,7 +46,7 @@ export interface liveTeam {
   abbr: string;
   score: number | string | null; // string for UFC results ("W"/"L")
   logoUrl?: string; // explicit crest URL from the provider (soccer)
-  flag?: string; // country code from the provider (UFC)
+  record?: string; // current win-loss(-draw) record (UFC)
 }
 
 export interface liveGame {
@@ -120,12 +144,37 @@ export function parseLiveMatchId(
 ): { sport: LiveSport; gameId: string } | null {
   const m = /^([a-z]+)-(.+)$/.exec(id);
   if (!m || !VALID_SPORTS.has(m[1] as LiveSport)) return null;
-  return { sport: m[1] as LiveSport, gameId: m[2] };
+  const sport = m[1] as LiveSport;
+  const gameId = m[2];
+  if (!GAME_ID_PATTERNS[sport].test(gameId)) return null;
+  return { sport, gameId };
 }
 
-// Live games first, round-robin across sports so one sport with many
-// simultaneous games (MLB) can't monopolize every slot, then soonest-
-// upcoming fills the rest. Final games are excluded.
+// Round-robins a list one-per-sport-per-pass (preserving each sport's own
+// relative order) so one sport with many simultaneous entries -- MLB's many
+// live games, a single UFC card's many fights -- can't monopolize a shared,
+// limited slot list. Shared by selectLiveNow (live games) and the home
+// page's "Upcoming" section (Preview-state games).
+export function roundRobinBySport<T extends { sport: LiveSport }>(
+  items: T[],
+): T[] {
+  const bySport = new Map<LiveSport, T[]>();
+  for (const item of items) {
+    const group = bySport.get(item.sport);
+    if (group) group.push(item);
+    else bySport.set(item.sport, [item]);
+  }
+  const groups = [...bySport.values()];
+
+  const ordered: T[] = [];
+  for (let i = 0; ordered.length < items.length; i++) {
+    for (const group of groups) if (i < group.length) ordered.push(group[i]);
+  }
+  return ordered;
+}
+
+// Live games first, round-robin across sports, then soonest-upcoming fills
+// the rest. Final games are excluded.
 export function selectLiveNow(
   games: liveGame[],
   target: number = 6,
@@ -138,22 +187,41 @@ export function selectLiveNow(
         new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
     );
 
-  const bySport = new Map<LiveSport, liveGame[]>();
-  for (const g of live) {
-    const group = bySport.get(g.sport);
-    if (group) group.push(g);
-    else bySport.set(g.sport, [g]);
-  }
-  const groups = [...bySport.values()];
-
-  const liveOrdered: liveGame[] = [];
-  for (let i = 0; liveOrdered.length < live.length; i++) {
-    for (const group of groups)
-      if (i < group.length) liveOrdered.push(group[i]);
-  }
+  const liveOrdered = roundRobinBySport(live);
 
   const needed = Math.max(0, target - liveOrdered.length);
   return [...liveOrdered, ...upcoming.slice(0, needed)];
+}
+
+// Pure text/sport/live-state filter over an already-fetched live-games list.
+// Shared by /search's "also show live & upcoming real games" feature and
+// (via searchLiveGames in lib/queries/matches.ts) its API route/SSR page --
+// kept pure and exported here, alongside roundRobinBySport, so it's
+// unit-testable without a network/redis round-trip.
+export function filterLiveGames(
+  games: liveGame[],
+  {
+    q,
+    sport,
+    liveOnly,
+  }: { q: string; sport: LiveSport | "all"; liveOnly: boolean },
+): liveGame[] {
+  const term = q.trim().toLowerCase();
+  return games.filter((g) => {
+    if (sport !== "all" && g.sport !== sport) return false;
+    if (liveOnly && g.state !== "Live") return false;
+    if (!term) return true;
+    const haystack = [
+      g.away.name,
+      g.away.abbr,
+      g.home.name,
+      g.home.abbr,
+      g.league,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(term);
+  });
 }
 
 const STATUS_BY_STATE: Record<string, MatchStatus> = {
@@ -168,10 +236,10 @@ export function toSide(team: liveTeam, sport: LiveSport): Side {
     abbr: team.abbr,
     color: "var(--surface-2)",
     logoSport: LOGO_SPORTS.has(sport)
-      ? (sport as "mlb" | "nba" | "nfl")
+      ? (sport as "mlb" | "nba" | "nfl" | "nhl")
       : undefined,
     logoUrl: team.logoUrl,
-    flag: team.flag,
+    record: team.record,
     score: team.score,
   };
 }

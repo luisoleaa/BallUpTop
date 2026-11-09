@@ -42,11 +42,25 @@ export async function checkRateLimit(
   return { success };
 }
 
+// Loose IPv4/IPv6 shape check -- not a strict validator, just enough to
+// reject garbage so a spoofed x-forwarded-for value can't mint a fresh
+// rate-limit identity on every request (see getClientIp).
+const IP_LIKE = /^[0-9a-fA-F.:]+$/;
+
 // x-forwarded-for can carry a comma-separated proxy chain -- the first
 // entry is the original client, added by the host's edge (Vercel, etc).
+// This assumes the deployment's edge strips/overwrites any client-supplied
+// x-forwarded-for before it reaches this app (true on Vercel); a host that
+// doesn't guarantee that would let a client pick its own bucket identity
+// per request, defeating the IP-keyed `auth`/`live-api` limits below.
 export async function getClientIp(): Promise<string> {
   const h = await headers();
   const forwarded = h.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return h.get("x-real-ip") ?? "unknown";
+  const candidate = forwarded?.split(",")[0].trim();
+  if (candidate && IP_LIKE.test(candidate)) return candidate;
+
+  const real = h.get("x-real-ip");
+  if (real && IP_LIKE.test(real)) return real;
+
+  return "unknown";
 }

@@ -196,7 +196,7 @@ the rest = one folder per route area.
 |------|--------------------|
 | `browse/BrowseClient.tsx` | `/browse` UI. Text search + sport-filter pills over the mock `MATCHES` (client-side `.filter`). Empty state uses the MJ ASCII art. |
 | `diary/DiaryClient.tsx` | `/diary` UI. Joins the user's `Rating[]` to mock `MATCHES`, shows summary stat cards (Logged / Avg rating / This year) then each logged match newest-first. Empty state = Wilt ASCII art. |
-| `event/EventCard.tsx` | Home-page tile for a UFC fight card: main-event crests, name, venue, fight count. |
+| `event/EventCard.tsx` | Home-page tile for a UFC fight card: card name, venue, main-event fighter names, fight count. No crest art -- UFC fighters have no logo. |
 | `games/GameViewTracker.tsx` | `"use client"`, renders nothing. Fires `incrementGameView(sport, id)` once on mount (client-only, so link prefetch doesn't inflate counts). |
 | `search/SearchClient.tsx` | `/search` UI. Debounced (300ms) text input + sport filter + recent/popular sort, all synced to the URL (`router.replace`) so a search is bookmarkable, and re-fetched via `/api/games/search`. Renders `GameResultCard`s; shows a Wilt-ASCII empty state. |
 | `search/GameResultCard.tsx` | Result tile for a **real** historical game. Splits `title` on " vs " and, if team abbreviations are present, shows `TeamLogo` beside each side; otherwise the plain title. Shows the score if finished. Links to `/games/[sport]/[id]`. |

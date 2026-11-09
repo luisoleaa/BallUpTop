@@ -47,11 +47,14 @@ when asked to extend the app, not a to-do list to work through unprompted.
   `public.live_rating_pulses`, see architecture.md.
 - NHL added to "Live now" (10/13/2026) via the same ESPN keyless site API family
   as NFL/soccer/UFC — `routes/live/nhl_live.ts`, one more entry in
-  `all_live.ts`'s provider registry. No ESPN-CDN logo tier for NHL yet (`Side.logoSport`
-  stays `"nba"|"nfl"|"mlb"` only), so NHL crests fall back to the colored-monogram
-  tier of the `Crest` chain — intentional, not a gap to fix, per design-system.md's
-  "every side should always render something" rule. `tennis`/`f1`/`cricket` remain
+  `all_live.ts`'s provider registry. `tennis`/`f1`/`cricket` remain
   the only sports still mock-only.
+- NHL given the same ESPN-CDN logo tier as NBA/NFL/MLB (11/08/2026) —
+  `LOGO_SPORTS`/`Side.logoSport` in `routes/live/live.ts` now include `"nhl"`,
+  and `components/search/TeamLogo.tsx`'s `sport` prop widened to a local
+  `LogoSport` (`GameSport | "nhl"`) rather than widening `GameSport` itself,
+  since NHL has no historical-archive table backing that type. Previously NHL
+  crests fell back to the colored-monogram tier.
 - **Found and fixed while building NHL (10/13/2026)**: ESPN's `dates=<start>-<end>`
   range-query syntax — the "yesterday+today" pattern NBA/NFL established to catch a
   late game still live past midnight ET — started 400ing on that whole endpoint
@@ -81,12 +84,11 @@ when asked to extend the app, not a to-do list to work through unprompted.
   deletion, diary sort/filter + per-sport breakdown, and `/browse` expanded
   to include real/live matches with status/sort/tag filters. See
   `docs/context/architecture.md`'s "Real backend, by piece" section and
-  the Obsidian context doc's 10/18/2026 entry for full detail. **Three new
-  migrations (`supabase/migrations/202610180000{01,02,03}`) are written
-  and committed but not yet applied to the live project** — `/users/[id]`,
-  follows, and lists are all non-functional until that SQL is run by hand.
-  This replaces the previously-fake "Set a reminder" button on upcoming
-  matches, which now really adds the match to the signed-in user's
+  the Obsidian context doc's 10/18/2026 entry for full detail. The three
+  migrations (`supabase/migrations/202610180000{01,02,03}`) were applied to
+  the live project 11/05/2026 — `/users/[id]`, follows, and lists are fully
+  functional. This replaces the previously-fake "Set a reminder" button on
+  upcoming matches, which now really adds the match to the signed-in user's
   watchlist.
 
 ## Open: unify the mock and real game systems

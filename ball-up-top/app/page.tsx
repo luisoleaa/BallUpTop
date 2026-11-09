@@ -1,9 +1,18 @@
 // Home page: hero, then Live now / Popular this week / On this day / Fight
-// cards / Upcoming sections. Live now is real MLB data; Popular/Fight cards/Upcoming
-// are the mock MATCHES/EVENTS data; On this day pulls from the real historical archive.
+// cards / Upcoming sections. Live now is real data across 6 sports;
+// Popular/Fight cards are the mock MATCHES/EVENTS data; Upcoming mixes real
+// Preview-state games (for the 6 real-feed sports, so logos are correct) with
+// mock fallback for tennis/F1/cricket, which have no real feed; On this day
+// pulls from the real historical archive.
 import { EVENTS, getMatch, getTopReviews, MATCHES, SPORTS } from "@/lib/data";
 import { getAllLiveGames } from "@/routes/live/all_live";
-import { getOnThisDay } from "@/lib/queries/games";
+import {
+  LIVE_SPORTS,
+  roundRobinBySport,
+  selectLiveNow,
+  toMatch,
+} from "@/routes/live/live";
+import { getOnThisDay, getOnThisDayBlurb } from "@/lib/queries/games";
 import { getAnyMatch } from "@/lib/queries/matches";
 import { getTopRealReviews } from "@/lib/queries/ratings";
 import { LiveGamesClient } from "@/components/live/liveGamesClient";
@@ -16,9 +25,9 @@ import {
 } from "@/components/layout/PopularReviews";
 import { Section } from "@/components/layout/Section";
 import { Button } from "@/components/ui/Button";
-import { Label } from "@/components/ui/Label";
 
 const POPULAR_REVIEWS_LIMIT = 4;
+const UPCOMING_LIMIT = 8;
 
 // Real reviews ranked first, mock seed reviews fill in after -- same
 // real-first/mock-filler pattern match detail pages use for their own
@@ -72,16 +81,34 @@ async function getPopularReviews(limit: number): Promise<PopularReview[]> {
 }
 
 export default async function HomePage() {
-  const [liveGames, popular, upcoming, topReviews, onThisDay] =
-    await Promise.all([
-      getAllLiveGames(),
-      Promise.resolve(MATCHES.filter((m) => m.heat && m.status === "final")),
-      Promise.resolve(
-        MATCHES.filter((m) => m.status === "upcoming" && !m.event),
-      ),
-      getPopularReviews(POPULAR_REVIEWS_LIMIT),
-      getOnThisDay(6),
-    ]);
+  const [liveGames, popular, topReviews, onThisDay] = await Promise.all([
+    getAllLiveGames(),
+    Promise.resolve(MATCHES.filter((m) => m.heat && m.status === "final")),
+    getPopularReviews(POPULAR_REVIEWS_LIMIT),
+    getOnThisDay(6),
+  ]);
+
+  // Same games "Live now" already shows (its own 6-slot pick) can't also
+  // appear in "Upcoming" below.
+  const liveNowIds = new Set(selectLiveNow(liveGames, 6).map((g) => g.id));
+  const upcomingPreview = liveGames
+    .filter((g) => g.state === "Preview" && !liveNowIds.has(g.id))
+    .sort(
+      (a, b) =>
+        new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+    );
+  // Round-robin across sports -- one UFC card's many fights, or one league's
+  // many kickoffs, shouldn't monopolize every slot the way a plain
+  // soonest-first sort would.
+  const realUpcoming = roundRobinBySport(upcomingPreview).map(toMatch);
+  // tennis/F1/cricket have no real feed, so they only ever show up here.
+  const mockUpcoming = MATCHES.filter(
+    (m) =>
+      m.status === "upcoming" &&
+      !m.event &&
+      !(LIVE_SPORTS as readonly string[]).includes(m.sport),
+  );
+  const upcoming = [...realUpcoming, ...mockUpcoming].slice(0, UPCOMING_LIMIT);
 
   return (
     <main style={{ maxWidth: 1160, margin: "0 auto", padding: "0 28px 80px" }}>
@@ -160,7 +187,11 @@ export default async function HomePage() {
             }}
           >
             {onThisDay.map((g) => (
-              <GameResultCard key={`${g.sport}-${g.id}`} game={g} />
+              <GameResultCard
+                key={`${g.sport}-${g.id}`}
+                game={g}
+                blurb={getOnThisDayBlurb(g)}
+              />
             ))}
           </div>
         </Section>

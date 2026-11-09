@@ -6,7 +6,13 @@
 import { useState } from "react";
 import type { GameSport } from "@/lib/queries/games";
 
-const ESPN_ABBR_OVERRIDES: Partial<Record<GameSport, Record<string, string>>> =
+// GameSport (nba/nfl/mlb) backs the real historical-game archive search;
+// nhl has no archive but shares the same ESPN-CDN logo convention, so this
+// component accepts it too for the live-feed crest path (Crest.tsx's
+// logoSport) without widening GameSport's archive-specific meaning.
+type LogoSport = GameSport | "nhl";
+
+const ESPN_ABBR_OVERRIDES: Partial<Record<LogoSport, Record<string, string>>> =
   {
     nba: {
       GSW: "gs",
@@ -21,7 +27,7 @@ const ESPN_ABBR_OVERRIDES: Partial<Record<GameSport, Record<string, string>>> =
     mlb: { AZ: "ari", CWS: "chw", WSH: "wsh" },
   };
 
-function espnLogoUrl(sport: GameSport, abbreviation: string) {
+function espnLogoUrl(sport: LogoSport, abbreviation: string) {
   const code =
     ESPN_ABBR_OVERRIDES[sport]?.[abbreviation] ?? abbreviation.toLowerCase();
   return `https://a.espncdn.com/i/teamlogos/${sport}/500/${code}.png`;
@@ -77,7 +83,7 @@ export function TeamLogo({
   abbreviation,
   size = 22,
 }: {
-  sport: GameSport;
+  sport: LogoSport;
   abbreviation: string;
   size?: number;
 }) {

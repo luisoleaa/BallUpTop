@@ -124,7 +124,7 @@ describe("mapEspnCompetition", () => {
 });
 
 describe("NHL through the shared helpers", () => {
-  it("toMatch keeps the nhl sport, falling back to the monogram crest (no ESPN-CDN tier for nhl)", () => {
+  it("toMatch keeps the nhl sport and sets the ESPN-CDN logo tier", () => {
     const m = toMatch(
       mustMap("401892488", competition("in", {}, ["3", "2"]), REGULAR),
     );
@@ -132,7 +132,7 @@ describe("NHL through the shared helpers", () => {
     expect(m.sport).toBe("nhl");
     expect(m.status).toBe("live");
     expect(m.clock).toBe("12:04 - 2nd");
-    expect(m.a.logoSport).toBeUndefined();
+    expect(m.a.logoSport).toBe("nhl");
   });
 });
 
