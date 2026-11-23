@@ -114,7 +114,15 @@ export async function addToListAction(
 ): Promise<ActionResult> {
   const result = await requireUser(matchId);
   if ("error" in result) return result;
-  const { supabase } = result;
+  const { supabase, user } = result;
+
+  const { data: list } = await supabase
+    .from("lists")
+    .select("id")
+    .eq("id", listId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!list) return { error: "List not found." };
 
   const { error } = await supabase
     .from("list_items")
@@ -132,7 +140,15 @@ export async function removeFromListAction(
 ): Promise<ActionResult> {
   const result = await requireUser(matchId);
   if ("error" in result) return result;
-  const { supabase } = result;
+  const { supabase, user } = result;
+
+  const { data: list } = await supabase
+    .from("lists")
+    .select("id")
+    .eq("id", listId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!list) return { error: "List not found." };
 
   const { error } = await supabase
     .from("list_items")

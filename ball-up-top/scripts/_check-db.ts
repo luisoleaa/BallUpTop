@@ -10,8 +10,14 @@ import { supabase } from "./scripts-supabase-client";
 
 async function main() {
   for (const table of ["nba_teams", "nfl_teams", "mlb_teams"]) {
-    const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true });
-    console.log(error ? `${table}: ERROR ${JSON.stringify(error)}` : `${table}: ${count} rows`);
+    const { count, error } = await supabase
+      .from(table)
+      .select("*", { count: "exact", head: true });
+    console.log(
+      error
+        ? `${table}: ERROR ${JSON.stringify(error)}`
+        : `${table}: ${count} rows`,
+    );
   }
 
   // Per-season counts + gaps, paged since selects cap at ~1000 rows.
@@ -41,14 +47,22 @@ async function main() {
       console.log(`${table}: no rows`);
       return;
     }
-    console.log(`${table}: seasons present ${allSeasons[0]}-${allSeasons[allSeasons.length - 1]}, ${allSeasons.length} distinct seasons`);
+    console.log(
+      `${table}: seasons present ${allSeasons[0]}-${allSeasons[allSeasons.length - 1]}, ${allSeasons.length} distinct seasons`,
+    );
     const missing: number[] = [];
     for (let s = allSeasons[0]; s <= allSeasons[allSeasons.length - 1]; s++) {
       if (!counts.has(s)) missing.push(s);
     }
-    console.log(`${table}: missing seasons in range:`, missing.length ? missing : "(none)");
-    const low = allSeasons.filter(s => (counts.get(s) ?? 0) < minExpected);
-    console.log(`${table}: seasons with <${minExpected} games (possibly partial):`, low.map(s => `${s}:${counts.get(s)}`));
+    console.log(
+      `${table}: missing seasons in range:`,
+      missing.length ? missing : "(none)",
+    );
+    const low = allSeasons.filter((s) => (counts.get(s) ?? 0) < minExpected);
+    console.log(
+      `${table}: seasons with <${minExpected} games (possibly partial):`,
+      low.map((s) => `${s}:${counts.get(s)}`),
+    );
   }
 
   await checkSeasonCoverage("nba_games", 100);
@@ -57,15 +71,18 @@ async function main() {
 
   // Fall back to OpenAPI introspection for empty tables.
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (url && anonKey) {
-    const res = await fetch(`${url}/rest/v1/?apikey=${anonKey}`, {
-      headers: { Authorization: `Bearer ${anonKey}` },
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (url && serviceRoleKey) {
+    const res = await fetch(`${url}/rest/v1/?apikey=${serviceRoleKey}`, {
+      headers: { Authorization: `Bearer ${serviceRoleKey}` },
     });
     const spec = await res.json();
     for (const table of ["nfl_games", "mlb_games"]) {
       const def = spec?.definitions?.[table];
-      console.log(`${table} columns (openapi):`, def ? Object.keys(def.properties) : "not found in schema");
+      console.log(
+        `${table} columns (openapi):`,
+        def ? Object.keys(def.properties) : "not found in schema",
+      );
     }
   }
 }
