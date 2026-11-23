@@ -4,6 +4,7 @@
 // RateModal's, with a title + description form instead of a rating form.
 import { useEffect, useState } from "react";
 import { createListAction } from "@/lib/actions/lists";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 import { Label } from "../ui/Label";
@@ -20,6 +21,8 @@ export function CreateListModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [show, setShow] = useState(false);
+
+  useBodyScrollLock();
 
   useEffect(() => {
     requestAnimationFrame(() => setShow(true));
@@ -125,7 +128,7 @@ export function CreateListModal({
             background: "var(--surface)",
             borderRadius: 14,
             padding: "12px 14px",
-            fontSize: 15,
+            fontSize: 16,
             color: "var(--text)",
             fontFamily: "inherit",
             marginBottom: 16,
@@ -145,7 +148,7 @@ export function CreateListModal({
             background: "var(--surface)",
             borderRadius: 14,
             padding: 14,
-            fontSize: 15,
+            fontSize: 16,
             color: "var(--text)",
             fontFamily: "inherit",
             resize: "none",

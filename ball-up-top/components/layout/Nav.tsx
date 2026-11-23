@@ -46,6 +46,7 @@ export function Nav() {
         backdropFilter: "blur(18px) saturate(180%)",
         WebkitBackdropFilter: "blur(18px) saturate(180%)",
         borderBottom: "1px solid var(--border)",
+        paddingTop: "env(safe-area-inset-top)",
       }}
     >
       <div
