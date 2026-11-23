@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { addToListAction, removeFromListAction } from "@/lib/actions/lists";
 import type { MatchList } from "@/lib/queries/lists";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { Icon } from "../ui/Icon";
 import { Label } from "../ui/Label";
 import { CreateListModal } from "./CreateListModal";
@@ -28,6 +29,8 @@ export function AddToListModal({
   const [pending, setPending] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [localLists, setLocalLists] = useState(lists);
+
+  useBodyScrollLock();
 
   useEffect(() => {
     requestAnimationFrame(() => setShow(true));
@@ -89,6 +92,7 @@ export function AddToListModal({
             maxWidth: 420,
             maxHeight: "70vh",
             overflowY: "auto",
+            overscrollBehavior: "contain",
             transform: show
               ? "translateY(0) scale(1)"
               : "translateY(16px) scale(0.98)",

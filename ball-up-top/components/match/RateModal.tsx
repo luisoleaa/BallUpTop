@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { TAGS } from "@/lib/data";
 import type { Match, UserLog } from "@/lib/types";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { Button } from "../ui/Button";
 import { Crest } from "../ui/Crest";
 import { Icon } from "../ui/Icon";
@@ -37,6 +38,8 @@ export function RateModal({
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
   const [review, setReview] = useState(existing?.review ?? "");
   const [show, setShow] = useState(false);
+
+  useBodyScrollLock();
 
   useEffect(() => {
     requestAnimationFrame(() => setShow(true));
@@ -83,6 +86,7 @@ export function RateModal({
           maxWidth: 480,
           maxHeight: "88vh",
           overflowY: "auto",
+          overscrollBehavior: "contain",
           transform: show
             ? "translateY(0) scale(1)"
             : "translateY(16px) scale(0.98)",
@@ -216,7 +220,7 @@ export function RateModal({
             background: "var(--surface)",
             borderRadius: 14,
             padding: 14,
-            fontSize: 15,
+            fontSize: 16,
             color: "var(--text)",
             fontFamily: "inherit",
             resize: "none",

@@ -315,7 +315,7 @@ function Field({
           border: "1px solid var(--border)",
           background: "var(--surface)",
           padding: "0 16px",
-          fontSize: 15.5,
+          fontSize: 16,
           color: "var(--text)",
           fontFamily: "inherit",
         }}

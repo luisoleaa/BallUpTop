@@ -48,12 +48,38 @@
 
 html {
   color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* iOS zooms the page on focusing any text input under 16px -- this is a
+   floor, not a design choice, so it overrides any smaller inline fontSize. */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+button,
+[role="button"],
+.bw-navlink {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 a {
@@ -113,12 +139,14 @@ a {
 .bw-card {
   transition: border-color 0.15s, transform 0.15s;
 }
-.bw-card:hover {
-  border-color: var(--text-faint);
-  transform: translateY(-2px);
-}
-.bw-navlink:hover {
-  color: var(--text) !important;
+@media (hover: hover) and (pointer: fine) {
+  .bw-card:hover {
+    border-color: var(--text-faint);
+    transform: translateY(-2px);
+  }
+  .bw-navlink:hover {
+    color: var(--text) !important;
+  }
 }
 
 /* accessible focus ring for text inputs/textareas (replaces outline:none) */
@@ -142,7 +170,10 @@ a {
 }
 
 /* Button interaction language. Each variant gets one distinct hover device
-   instead of a single generic brightness flicker everywhere. */
+   instead of a single generic brightness flicker everywhere. Hover rules
+   below are split into their own @media (hover: hover) block, separate from
+   their :focus-visible twin, so touch taps don't get stuck in a hover state
+   -- keep each pair's values in sync when editing one. */
 .bw-btn {
   position: relative;
   overflow: hidden;
@@ -171,7 +202,12 @@ a {
 .bw-btn--primary {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
-.bw-btn--primary:hover:not(:disabled),
+@media (hover: hover) and (pointer: fine) {
+  .bw-btn--primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--accent) 60%, transparent), 0 2px 5px rgba(0, 0, 0, 0.3);
+  }
+}
 .bw-btn--primary:focus-visible:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--accent) 60%, transparent), 0 2px 5px rgba(0, 0, 0, 0.3);
@@ -192,7 +228,12 @@ a {
   transition: opacity 0.25s ease, transform 0.25s ease;
   pointer-events: none;
 }
-.bw-btn--primary:hover:not(:disabled) .bw-btn-arc,
+@media (hover: hover) and (pointer: fine) {
+  .bw-btn--primary:hover:not(:disabled) .bw-btn-arc {
+    opacity: 0.55;
+    transform: translateY(0);
+  }
+}
 .bw-btn--primary:focus-visible:not(:disabled) .bw-btn-arc {
   opacity: 0.55;
   transform: translateY(0);
@@ -210,7 +251,11 @@ a {
   transform-origin: bottom;
   transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
-.bw-btn--secondary:hover:not(:disabled)::before,
+@media (hover: hover) and (pointer: fine) {
+  .bw-btn--secondary:hover:not(:disabled)::before {
+    transform: scaleY(1);
+  }
+}
 .bw-btn--secondary:focus-visible::before {
   transform: scaleY(1);
 }
@@ -230,7 +275,11 @@ a {
   opacity: 0.75;
   transition: right 0.2s ease;
 }
-.bw-btn--ghost:hover:not(:disabled)::after,
+@media (hover: hover) and (pointer: fine) {
+  .bw-btn--ghost:hover:not(:disabled)::after {
+    right: 0;
+  }
+}
 .bw-btn--ghost:focus-visible::after {
   right: 0;
 }
