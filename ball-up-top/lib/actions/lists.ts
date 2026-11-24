@@ -31,6 +31,30 @@ async function requireUser(matchId?: string): Promise<RequireUserResult> {
   return { supabase, user };
 }
 
+type OwnedListResult =
+  { error: string } | { list: { id: string; is_watchlist: boolean } };
+
+// Shared ownership probe for lists.user_id, used before any list/list_items
+// mutation below (RLS enforces the same check atomically at the DB layer --
+// this is defense-in-depth, not the only thing stopping a non-owner). Surfaces
+// a real query error distinctly from "no matching row" instead of collapsing
+// both into the same generic message.
+async function getOwnedList(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  listId: string,
+  userId: string,
+): Promise<OwnedListResult> {
+  const { data: list, error } = await supabase
+    .from("lists")
+    .select("id, is_watchlist")
+    .eq("id", listId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!list) return { error: "List not found." };
+  return { list };
+}
+
 export async function createListAction(
   title: string,
   description: string,
@@ -88,14 +112,10 @@ export async function deleteListAction(listId: string): Promise<ActionResult> {
   if ("error" in result) return result;
   const { supabase, user } = result;
 
-  const { data: list } = await supabase
-    .from("lists")
-    .select("is_watchlist")
-    .eq("id", listId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!list) return { error: "List not found." };
-  if (list.is_watchlist) return { error: "Your watchlist can't be deleted." };
+  const owned = await getOwnedList(supabase, listId, user.id);
+  if ("error" in owned) return owned;
+  if (owned.list.is_watchlist)
+    return { error: "Your watchlist can't be deleted." };
 
   const { error } = await supabase
     .from("lists")
@@ -116,13 +136,8 @@ export async function addToListAction(
   if ("error" in result) return result;
   const { supabase, user } = result;
 
-  const { data: list } = await supabase
-    .from("lists")
-    .select("id")
-    .eq("id", listId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!list) return { error: "List not found." };
+  const owned = await getOwnedList(supabase, listId, user.id);
+  if ("error" in owned) return owned;
 
   const { error } = await supabase
     .from("list_items")
@@ -142,13 +157,8 @@ export async function removeFromListAction(
   if ("error" in result) return result;
   const { supabase, user } = result;
 
-  const { data: list } = await supabase
-    .from("lists")
-    .select("id")
-    .eq("id", listId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!list) return { error: "List not found." };
+  const owned = await getOwnedList(supabase, listId, user.id);
+  if ("error" in owned) return owned;
 
   const { error } = await supabase
     .from("list_items")
